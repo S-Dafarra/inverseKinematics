@@ -31,9 +31,11 @@ public:
 
     virtual bool load(const std::string &filename);
 
-    virtual bool configure(const std::string &filename, const std::vector< std::string > &consideredJoints, std::vector<double>& gains, iDynTree::Vector3 &desiredPosition, iDynTree::Vector4 &desiredQuaternion, iDynTree::VectorDynSize &desiredJoints, const std::string& parentFrameIn, const std::string& endEfFrameIn);
+    virtual bool configure(const std::string &filename, const std::vector< std::string > &consideredJoints, const std::vector<double>& gains, const iDynTree::Vector3 &desiredPosition, const iDynTree::Vector4 &desiredQuaternion, const iDynTree::VectorDynSize &desiredJoints, const std::string& parentFrameIn, const std::string& endEfFrameIn);
 
-    inline iDynTree::MatrixFixSize<7,6> twistToQuatTwist(iDynTree::Vector4 quat);
+    virtual iDynTree::MatrixFixSize<7,6> twistToQuatTwist(iDynTree::Vector4 &quat);
+
+    virtual iDynTree::MatrixDynSize relativeJacobian(const iDynTree::VectorDynSize &configuration);
 
     virtual bool get_nlp_info(Ipopt::Index& n, Ipopt::Index& m, Ipopt::Index& nnz_jac_g,
                               Ipopt::Index& nnz_h_lag, IndexStyleEnum& index_style);

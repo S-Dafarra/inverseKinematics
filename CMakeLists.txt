@@ -12,8 +12,12 @@ find_package(Eigen3 REQUIRED)
 
 include_directories(SYSTEM ${IPOPT_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIR})
 
-add_executable(inverseKinematics inverseKinematics.cpp)
+include_directories(include)
+
+add_library(${PROJECT_NAME} MODULE src/InverseKinematicsIPOPT.cpp include/InverseKinematicsIPOPT.h
+                                   src/InverseKinematics.cpp include/InverseKinematics.h)
 
 target_link_libraries(${PROJECT_NAME} ${iDynTree_LIBRARIES} ${IPOPT_LIBRARIES})
+
 
 

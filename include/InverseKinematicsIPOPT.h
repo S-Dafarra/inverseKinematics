@@ -1,41 +1,62 @@
-#ifndef INVERSEKINEMATICS_H
-#define INVERSEKINEMATICS_H
+#ifndef INVERSEKINEMATICSIPOPT_H
+#define INVERSEKINEMATICSIPOPT_H
 
 #include <IpTNLP.hpp>
 #include <iDynTree/Core/VectorFixSize.h>
 #include <iDynTree/Core/VectorDynSize.h>
 #include <iDynTree/Core/MatrixDynSize.h>
-#include <iDynTree/Core/Twist.h>
-#include <iDynTree/Core/ClassicalAcc.h>
 #include <iDynTree/Core/Transform.h>
 #include <iDynTree/Model/Model.h>
 #include <iDynTree/ModelIO/ModelLoader.h>
 #include <iDynTree/Core/EigenHelpers.h>
 #include <iDynTree/KinDynComputations.h>
 #include <math.h>
+#include <IpIpoptApplication.hpp>
+#include <string>
+#include <vector>
+#include <Eigen/Core>
+#include <iDynTree/Core/EigenHelpers.h>
 
-
-
-class inverseKinematics : public Ipopt::TNLP {
+class InverseKinematicsIPOPT : public Ipopt::TNLP {
     iDynTree::Model model;
+    bool modelLoaded;
+    bool gainsLoaded;
+    bool framesLoaded;
     iDynTree::KinDynComputations iKDC;
-    iDynTree::MatrixDynSize Hessian;
-    iDynTree::VectorDynSize Gradient;
-    iDynTree::FrameIndex parentFrame, endEfFrame;
+    iDynTree::MatrixDynSize hessian;
+    iDynTree::VectorDynSize gradient;
+    iDynTree::FrameIndex parentFrame, endEffectorFrame;
+    std::vector<double> gains;
+    iDynTree::Vector3 desiredPosition;
+    iDynTree::Vector4 desiredQuaternion; 
+    iDynTree::VectorDynSize desiredJoints;
     std::vector< std::pair<double,double> > jointsLimits; //joints upper and lower limits 
     int totalDOF;
+    iDynTree::MatrixDynSize Ep, Eq, Edof; //extractors from the total variable vector    
+    iDynTree::VectorDynSize jointResult;
+    iDynTree::Vector3 positionError;
+    iDynTree::Rotation rotationError;
+    double angleError;
+    signed int exitCode;
+    
 public:
-    inverseKinematics();
+    InverseKinematicsIPOPT();
+    
+    InverseKinematicsIPOPT(const std::string &filename, const std::vector< std::string > &consideredJoints, const std::vector<double>& gainsIn, const iDynTree::Vector3 &desiredPositionIn, const iDynTree::Vector4 &desiredQuaternionIn, const iDynTree::VectorDynSize &desiredJointsIn, const std::string& parentFrameIn, const std::string& endEffectorFrameIn);
 
-    virtual ~inverseKinematics();
+    virtual ~InverseKinematicsIPOPT();
 
-    virtual bool load(const std::string &filename);
+    virtual bool load(const std::string &filename, const std::vector< std::string > &consideredJoints);
+    
+    virtual bool setFrames(const std::string& parentFrameIn, const std::string& endEffectorFrameIn);
 
-    virtual bool configure(const std::string &filename, const std::vector< std::string > &consideredJoints, const std::vector<double>& gains, const iDynTree::Vector3 &desiredPosition, const iDynTree::Vector4 &desiredQuaternion, const iDynTree::VectorDynSize &desiredJoints, const std::string& parentFrameIn, const std::string& endEfFrameIn);
+    virtual bool update(const std::vector<double>& gainsIn, const iDynTree::Vector3 &desiredPositionIn, const iDynTree::Vector4 &desiredQuaternionIn, const iDynTree::VectorDynSize &desiredJointsIn);
 
-    virtual iDynTree::MatrixFixSize<7,6> twistToQuatTwist(iDynTree::Vector4 &quat);
+    virtual bool update();
 
-    virtual iDynTree::MatrixDynSize relativeJacobian(const iDynTree::VectorDynSize &configuration);
+    virtual void twistToQuaternionTwist(iDynTree::Vector4 &quaternion, iDynTree::MatrixFixSize<7,6>& mapOut);
+
+    virtual void relativeJacobian(const iDynTree::VectorDynSize &configuration, iDynTree::MatrixDynSize& jacobianOut);
 
     virtual bool get_nlp_info(Ipopt::Index& n, Ipopt::Index& m, Ipopt::Index& nnz_jac_g,
                               Ipopt::Index& nnz_h_lag, IndexStyleEnum& index_style);

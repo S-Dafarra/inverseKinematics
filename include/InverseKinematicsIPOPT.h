@@ -26,31 +26,32 @@ class InverseKinematicsIPOPT : public Ipopt::TNLP {
     iDynTree::MatrixDynSize hessian;
     iDynTree::VectorDynSize gradient;
     iDynTree::FrameIndex parentFrame, endEffectorFrame;
-    std::vector<double> gains;
-    iDynTree::Vector3 desiredPosition;
-    iDynTree::Vector4 desiredQuaternion; 
-    iDynTree::VectorDynSize desiredJoints;
     std::vector< std::pair<double,double> > jointsLimits; //joints upper and lower limits 
     int totalDOF;
     iDynTree::MatrixDynSize Ep, Eq, Edof; //extractors from the total variable vector    
+    
+public:
     iDynTree::VectorDynSize jointResult;
+    iDynTree::Vector3 gains;
+    iDynTree::Vector3 desiredPosition;
+    iDynTree::Vector4 desiredQuaternion; 
+    iDynTree::VectorDynSize desiredJoints;
     iDynTree::Vector3 positionError;
     iDynTree::Rotation rotationError;
     double angleError;
     signed int exitCode;
     
-public:
     InverseKinematicsIPOPT();
     
-    InverseKinematicsIPOPT(const std::string &filename, const std::vector< std::string > &consideredJoints, const std::vector<double>& gainsIn, const iDynTree::Vector3 &desiredPositionIn, const iDynTree::Vector4 &desiredQuaternionIn, const iDynTree::VectorDynSize &desiredJointsIn, const std::string& parentFrameIn, const std::string& endEffectorFrameIn);
-
     virtual ~InverseKinematicsIPOPT();
 
-    virtual bool load(const std::string &filename, const std::vector< std::string > &consideredJoints);
+    virtual bool loadFromFile(const std::string &filename, const std::vector< std::string > &consideredJoints);
+    
+    virtual bool loadFromModel(const iDynTree::Model modelInput);
     
     virtual bool setFrames(const std::string& parentFrameIn, const std::string& endEffectorFrameIn);
 
-    virtual bool update(const std::vector<double>& gainsIn, const iDynTree::Vector3 &desiredPositionIn, const iDynTree::Vector4 &desiredQuaternionIn, const iDynTree::VectorDynSize &desiredJointsIn);
+    virtual bool update(const iDynTree::Vector3& gainsIn, const iDynTree::Vector3 &desiredPositionIn, const iDynTree::Vector4 &desiredQuaternionIn, const iDynTree::VectorDynSize &desiredJointsIn);
 
     virtual bool update();
 

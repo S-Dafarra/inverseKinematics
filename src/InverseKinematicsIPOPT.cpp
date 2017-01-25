@@ -13,55 +13,18 @@ InverseKinematicsIPOPT::InverseKinematicsIPOPT()
 ,modelLoaded(false)
 ,framesLoaded(false)
 ,gainsLoaded(false)
+,angleError(0)
 {
-
+    positionError.zero();
+    rotationError.Identity();
 }
-
-//da cancellare!!
-InverseKinematicsIPOPT::InverseKinematicsIPOPT(const string& filename, const vector< string >& consideredJoints, const vector< double >& gainsIn, const Vector3& desiredPositionIn, const Vector4& desiredQuaternionIn, const VectorDynSize& desiredJointsIn, const string& parentFrameIn, const string& endEffectorFrameIn)
-: exitCode(-12)
-,modelLoaded(false)
-,framesLoaded(false)
-,gainsLoaded(false)
-{
-    load(filename, consideredJoints);
-    setFrames(parentFrameIn,endEffectorFrameIn);
-    update(gainsIn, desiredPositionIn, desiredQuaternionIn, desiredJointsIn);
-}
-
 
 InverseKinematicsIPOPT::~InverseKinematicsIPOPT()
 {}
 
-
-
-bool InverseKinematicsIPOPT::load(const string& filename, const vector< string >& consideredJoints)
+bool InverseKinematicsIPOPT::loadFromModel(const Model modelInput)
 {
-    bool success= false;
-    ModelLoader loader;
-
-    success = loader.loadModelFromFile(filename);
-    
-    if (!success) {
-        std::cerr << "[ERROR] Error loading URDF model from " << filename;
-        return false;
-    }
-
-    model = loader.model();
-    
-    const Model input=model;
-    
-    if (!consideredJoints.empty())
-        success = loader.loadReducedModelFromFullModel(input, consideredJoints);
-    
-    if (!success){
-        std::cerr << "[ERROR] Cannot select joints: ";
-        for (std::vector< string >::const_iterator i = consideredJoints.begin(); i != consideredJoints.end(); ++i)
-            std::cerr << *i << ' ';
-        return false;
-    }
-    
-    model = loader.model();
+    model = modelInput;
     
     iKDC.loadRobotModel(model);
     
@@ -80,6 +43,8 @@ bool InverseKinematicsIPOPT::load(const string& filename, const vector< string >
             }
             jointsLimits.push_back(limits);
         }
+    
+    desiredJoints.resize(model.getNrOfDOFs());
     
     totalDOF =7 + model.getNrOfDOFs();
     
@@ -101,20 +66,53 @@ bool InverseKinematicsIPOPT::load(const string& filename, const vector< string >
     return true;
 }
 
+
+bool InverseKinematicsIPOPT::loadFromFile(const string& filename, const vector< string >& consideredJoints)
+{
+    bool success= false;
+    ModelLoader loader;
+
+    success = loader.loadModelFromFile(filename);
+    
+    if (!success) {
+        std::cerr << "[ERROR] Error loading URDF model from " << filename << std::endl;
+        return false;
+    }
+
+    model = loader.model();
+    
+    const Model input=model;
+    
+    if (!consideredJoints.empty())
+        success = loader.loadReducedModelFromFullModel(input, consideredJoints);
+    
+    if (!success){
+        std::cerr << "[ERROR] Cannot select joints: " ;
+        for (std::vector< string >::const_iterator i = consideredJoints.begin(); i != consideredJoints.end(); ++i)
+            std::cerr << *i << ' ';
+        std::cerr << std::endl;
+        return false;
+    }
+    
+    model = loader.model();
+    
+    return loadFromModel(model);
+}
+
 bool InverseKinematicsIPOPT::setFrames(const string& parentFrameIn, const string& endEffectorFrameIn)
 {
    if(!modelLoaded){
-       std::cerr<<"First you have to load a model";
+       std::cerr<<"[ERROR] First you have to load a model"<< std::endl;
        return false;
    }
     parentFrame = model.getFrameIndex(parentFrameIn);
     endEffectorFrame = model.getFrameIndex(endEffectorFrameIn);
     
     if(parentFrame == FRAME_INVALID_INDEX){
-        std::cerr<<"Invalid parent frame: "<<parentFrameIn;
+        std::cerr<<"[ERROR] Invalid parent frame: "<<parentFrameIn<< std::endl;
         return false;}
     else if(endEffectorFrame == FRAME_INVALID_INDEX){
-        std::cerr<<"Invalid End Effector Frame: "<<endEffectorFrameIn;
+        std::cerr<<"[ERROR] Invalid End Effector Frame: "<<endEffectorFrameIn<< std::endl;
         return false;}
     
     framesLoaded = true;
@@ -122,24 +120,20 @@ bool InverseKinematicsIPOPT::setFrames(const string& parentFrameIn, const string
 }
 
 
-bool InverseKinematicsIPOPT::update(const vector< double >& gainsIn, const Vector3& desiredPositionIn, const Vector4& desiredQuaternionIn, const VectorDynSize& desiredJointsIn)
+bool InverseKinematicsIPOPT::update(const Vector3& gainsIn, const Vector3& desiredPositionIn, const Vector4& desiredQuaternionIn, const VectorDynSize& desiredJointsIn)
 {
     if(!modelLoaded){
-       std::cerr<<"First you have to load a model";
+       std::cerr<<"[ERROR] First you have to load a model"<< std::endl;
        return false;
     }
-    
-    if(gainsIn.size() < 3){
-        std::cerr << "Invalid Gains Dimension";
-        return false;
-    }
+
     if(desiredJointsIn.size() != (totalDOF-7)){
-        std::cerr<<"Dimension of desired joints vector lower than the number of considered joints"<<desiredJointsIn.size()<<"!="<<model.getNrOfDOFs();
+        std::cerr<<"[ERROR] Dimension of desired joints vector lower than the number of considered joints"<<desiredJointsIn.size()<<"!="<<model.getNrOfDOFs()<< std::endl;
         return false;
     }
     
-    toEigen(hessian) = (gainsIn[0]*toEigen(Ep).transpose()*toEigen(Ep) + gainsIn[1]*toEigen(Eq).transpose()*toEigen(Eq) + gainsIn[2]*toEigen(Edof).transpose()*toEigen(Edof));
-    toEigen(gradient) = -(gainsIn[0]*toEigen(desiredPositionIn).transpose()*toEigen(Ep) + gainsIn[1]*toEigen(desiredQuaternionIn).transpose()*toEigen(Eq) + gainsIn[2]*toEigen(desiredJointsIn).transpose()*toEigen(Edof));
+    toEigen(hessian) = (gainsIn(0)*toEigen(Ep).transpose()*toEigen(Ep) + gainsIn(1)*toEigen(Eq).transpose()*toEigen(Eq) + gainsIn(2)*toEigen(Edof).transpose()*toEigen(Edof));
+    toEigen(gradient) = -(gainsIn(0)*toEigen(desiredPositionIn).transpose()*toEigen(Ep) + gainsIn(1)*toEigen(desiredQuaternionIn).transpose()*toEigen(Eq) + gainsIn(2)*toEigen(desiredJointsIn).transpose()*toEigen(Edof));
     
     desiredPosition = desiredPositionIn;
     desiredJoints = desiredJointsIn;
@@ -150,8 +144,11 @@ bool InverseKinematicsIPOPT::update(const vector< double >& gainsIn, const Vecto
     return true;
 }
 
+bool InverseKinematicsIPOPT::update()
+{
+    return update(gains,desiredPosition,desiredQuaternion,desiredJoints);
 
-
+}
 
 void InverseKinematicsIPOPT::twistToQuaternionTwist(Vector4& quaternion, MatrixFixSize< 7, 6 >& mapOut)
 {
@@ -191,7 +188,9 @@ void InverseKinematicsIPOPT::twistToQuaternionTwist(Vector4& quaternion, MatrixF
 void InverseKinematicsIPOPT::relativeJacobian(const VectorDynSize& configuration, MatrixDynSize& jacobianOut)
 {
     Matrix6x6 right2mixed, left2mixed;
-    MatrixDynSize e_J_we_temp, p_J_wp_temp, e_J_we, p_J_wp;
+    FrameFreeFloatingJacobian e_J_we_temp, p_J_wp_temp;
+    MatrixDynSize e_J_we, p_J_wp;
+    
     
     iKDC.setJointPos(configuration);
     iKDC.setFrameVelocityRepresentation(BODY_FIXED_REPRESENTATION); //left trivialized velocity
@@ -199,6 +198,8 @@ void InverseKinematicsIPOPT::relativeJacobian(const VectorDynSize& configuration
     left2mixed = iKDC.getRelativeTransformExplicit(endEffectorFrame,parentFrame,endEffectorFrame,endEffectorFrame).asAdjointTransform(); //is the adjoint transformation from left-trivialized velocity to mixed velocity with the origin on the target frame and the orientation of the parent frame
     right2mixed = iKDC.getRelativeTransformExplicit(endEffectorFrame,parentFrame,parentFrame,parentFrame).asAdjointTransform(); //is the adjoit trasnformation from right-trivialized velocity to mixed velocity. It comes from a multiplication of two adjoints: from left to mixed times from right to left
     
+    p_J_wp_temp.resize(iKDC.model());
+    e_J_we_temp.resize(iKDC.model());
     iKDC.getFrameFreeFloatingJacobian(parentFrame, p_J_wp_temp); //getting the jacobian from world to parent frame with left-trivialized velocity representation
     iKDC.getFrameFreeFloatingJacobian(endEffectorFrame, e_J_we_temp);  //getting the jacobian from world to target frame with left-trivialized velocity representation
     
@@ -218,15 +219,15 @@ bool InverseKinematicsIPOPT::get_nlp_info(Ipopt::Index& n, Ipopt::Index& m, Ipop
                               Ipopt::Index& nnz_h_lag, IndexStyleEnum& index_style)
 {
     if(!modelLoaded){
-        std::cerr<<"First you have to load the model";
+        std::cerr<<"[ERROR] First you have to load the model"<< std::endl;
         return false;
     }
     else if(!framesLoaded){
-        std::cerr<<"First you have to select the frames";
+        std::cerr<<"[ERROR] First you have to select the frames"<< std::endl;
         return false;
     }
     else if(!gainsLoaded){
-        std::cerr<<"First you have to define cost function gains";
+        std::cerr<<"[ERROR] First you have to define cost function gains"<< std::endl;
         return false;
     }
     
@@ -467,7 +468,8 @@ void InverseKinematicsIPOPT::finalize_solution(SolverReturn status, Ipopt::Index
 
 bool InverseKinematicsIPOPT::eval_h(Ipopt::Index n, const Number* x, bool new_x, Number obj_factor, Ipopt::Index m, const Number* lambda, bool new_lambda, Ipopt::Index nele_hess, Ipopt::Index* iRow, Ipopt::Index* jCol, Number* values)
 {
-return Ipopt::TNLP::eval_h(n, x, new_x, obj_factor, m, lambda, new_lambda, nele_hess, iRow, jCol, values);
+    //return Ipopt::TNLP::eval_h(n, x, new_x, obj_factor, m, lambda, new_lambda, nele_hess, iRow, jCol, values);
+    return false;
 }
 
 

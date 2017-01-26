@@ -90,6 +90,7 @@ bool InverseKinematicsIPOPT::loadFromModel(const Model modelInput)
     toEigen(Eq).block<4,4>(0,3).setIdentity();
     
     Edof.resize(model.getNrOfDOFs(),totalDOF);
+    Edof.zero();
     toEigen(Edof).block(0,7,model.getNrOfDOFs(),model.getNrOfDOFs()).setIdentity();
     
     modelLoaded = true;
@@ -162,7 +163,7 @@ bool InverseKinematicsIPOPT::update(const Vector3& gainsIn, const Vector3& desir
         return false;
     }
     
-    toEigen(hessian) = (gainsIn(0)*toEigen(Ep).transpose()*toEigen(Ep) + gainsIn(1)*toEigen(Eq).transpose()*toEigen(Eq) + gainsIn(2)*toEigen(Edof).transpose()*toEigen(Edof));
+    toEigen(hessian) =  gainsIn(0)*toEigen(Ep).transpose()*toEigen(Ep) + gainsIn(1)*toEigen(Eq).transpose()*toEigen(Eq) + gainsIn(2)*toEigen(Edof).transpose()*toEigen(Edof);
     toEigen(gradient) = -(gainsIn(0)*toEigen(desiredPositionIn).transpose()*toEigen(Ep) + gainsIn(1)*toEigen(desiredQuaternionIn).transpose()*toEigen(Eq) + gainsIn(2)*toEigen(desiredJointsIn).transpose()*toEigen(Edof));
     
     desiredPosition = desiredPositionIn;
@@ -339,9 +340,6 @@ bool InverseKinematicsIPOPT::eval_grad_f(Ipopt::Index n, const Number* x, bool n
     Grad_f.setZero();
     
     Grad_f = toEigen(hessian)*x_in + toEigen(gradient);
-    std::cout << "------------- gradf " << Grad_f << std::endl;
-    std::cout << "------------- hessian " << toEigen(hessian) << std::endl;
-    std::cout << "------------- gradient " << toEigen(gradient) << std::endl;
     
     return true;
 }

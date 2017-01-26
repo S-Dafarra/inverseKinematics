@@ -2,7 +2,7 @@
 #include "URDFdir.h"
 #include "iDynTree/Model/Traversal.h"
 #include <iDynTree/Core/TestUtils.h>
-#include <time.h>
+#include <ctime>
 
 int main(int argc, char **argv) {
     
@@ -17,9 +17,9 @@ int main(int argc, char **argv) {
     
     std::cerr <<"Model Loaded"<< std::endl;
     
-    //srand ( time(NULL) );    
+    srand ( clock() );
     
-    iDynTree::FrameIndex parentFrame = model.getFrameIndex("root_link");//  rand() % model.getNrOfFrames();
+    iDynTree::FrameIndex parentFrame = rand() % model.getNrOfFrames(); //model.getFrameIndex("root_link");
     
     std::cerr<<"Selected parent frame "<< model.getFrameName(parentFrame)<< std::endl;
     
@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
     while(model.getFrameLink(targetFrame) == model.getFrameLink(parentFrame)){
         targetFrame = rand() % model.getNrOfFrames();
     }
-    targetFrame = model.getFrameIndex("r_upper_leg_mtb_acc_11b6");
+    //targetFrame = model.getFrameIndex("r_upper_leg_mtb_acc_11b6");
     std::cerr<<"Selected target frame "<< model.getFrameName(targetFrame)<< std::endl;
     
     std::vector< std::string > consideredJoints;
@@ -111,7 +111,7 @@ int main(int argc, char **argv) {
     iDynTree::Vector3 gains;
     gains(0) = 100;
     gains(1) = 10;
-    gains(2) = 0;
+    gains(2) = 0.01;
     
     solver.setGains(gains);
     
@@ -133,6 +133,8 @@ int main(int argc, char **argv) {
     iDynTree::Vector3 positionErrorComputed, positionErrorIK;
     iDynTree::Rotation rotationErrorIK, rotationErrorComputed;
     double angleError;
+    clock_t now;
+    double elapsed_time;
     
     for(int j=0; j<4; ++j){
     
@@ -143,38 +145,47 @@ int main(int argc, char **argv) {
             std::cerr << "$ " << jointsTest(i) << std::endl;
         }
         
+        iKDC.setJointPos(jointsTest);
+        
         iDynTree::Transform p_H_t = iKDC.getRelativeTransform(parentFrame,targetFrame);
+        
+        iKDC.getJointPos(jointsTest);
+        
+        std::cerr << "iKDC joints: " <<  jointsTest.toString() << std::endl;
         
         solver.setDesiredTransformation(p_H_t);
         
         std::cerr << "Desired Transformation set" << std::endl;
-    
+        
+        
+        now = clock();
         exitCode = solver.runIK(jointsIK);
+        elapsed_time = clock() - now;
+        elapsed_time = elapsed_time/CLOCKS_PER_SEC;
+        std::cerr << "Elapsed Time: "<< elapsed_time << std::endl;
         
         std::cerr << "Exit Code " << exitCode << std::endl;
         
         iDynTree::assertTrue((exitCode >= 0));
         
-        for(int i=0; i < jointsIK.size(); ++i){
-           std::cerr << "-" << model.getJointName(i) <<": "<< jointsIK(i) << std::endl;
-        }
-        
+        std::cerr << "Joints IK:" << jointsIK.toString() << std::endl;
+       
         iDynTree::assertTrue(iKDC.setJointPos(jointsIK));
         
         iDynTree::toEigen(positionErrorComputed) = iDynTree::toEigen(p_H_t.getPosition()) - iDynTree::toEigen( iKDC.getRelativeTransform(parentFrame,targetFrame).getPosition() );
         rotationErrorComputed = p_H_t.getRotation()*(iKDC.getRelativeTransform(parentFrame,targetFrame).getRotation().inverse());
         
         std::cerr << "Computed position error: " << positionErrorComputed.toString() << std::endl;
-        std::cerr << "Computed rotation error: " << rotationErrorComputed.toString() << std::endl;
+        std::cerr << "Computed rotation error: " << std::endl << rotationErrorComputed.toString() << std::endl;
         
         std::cerr << "Retrieving errors from solver" << std::endl;
         solver.getErrors(positionErrorIK, rotationErrorIK, &angleError);
         
         std::cerr << "Retrieved position error: " << positionErrorIK.toString() << std::endl;
-        std::cerr << "Retreived rotation error: "<< rotationErrorIK.toString() << std::endl;
+        std::cerr << "Retreived rotation error: "<< std::endl << rotationErrorIK.toString() << std::endl;
         std::cerr << "Retreived angle error: "<< angleError << std::endl;
         
+        
     }
-    
-    //BISOGNA CONSIDERARE CHE UNO STESSO GIUNTO PUO AVERE PIU DOF O NON AVERNE PROPRIO!!
+
 }

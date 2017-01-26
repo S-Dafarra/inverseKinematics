@@ -120,7 +120,7 @@ signed int InverseKinematics::runIK(iDynTree::VectorDynSize& jointsOut)
     if (!initialized){
         Ipopt::ApplicationReturnStatus status;
         //loader->Options()->SetStringValue("derivative_test", "first-order");
-        loader->Options()->SetIntegerValue("print_level", 12);
+        loader->Options()->SetIntegerValue("print_level", 0);
 
         status = loader->Initialize();
         if(status != Ipopt::Solve_Succeeded){

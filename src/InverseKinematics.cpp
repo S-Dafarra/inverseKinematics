@@ -119,6 +119,7 @@ signed int InverseKinematics::runIK(iDynTree::VectorDynSize& jointsOut)
 {
     if (!initialized){
         Ipopt::ApplicationReturnStatus status;
+        //loader->Options()->SetStringValue("derivative_test", "first-order");
         status = loader->Initialize();
         if(status != Ipopt::Solve_Succeeded){
             std::cerr<<"[ERROR] Error during IPOPT solver initialization"<< std::endl;
@@ -142,6 +143,7 @@ signed int InverseKinematics::runIK(iDynTree::VectorDynSize& jointsOut)
     }
     else {*/
             std::cerr << "Passing to loader" << std::endl;
+    
             loader->OptimizeTNLP(solverPointer);
             alreadyOptimized = true;
             jointsOut = solverPointer->jointResult;

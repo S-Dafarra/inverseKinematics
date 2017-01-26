@@ -299,6 +299,9 @@ bool InverseKinematicsIPOPT::get_bounds_info(Ipopt::Index n, Number* x_l, Number
 
 bool InverseKinematicsIPOPT::get_starting_point(Ipopt::Index n, bool init_x, Number* x, bool init_z, Number* z_L, Number* z_U, Ipopt::Index m, bool init_lambda, Number* lambda)
 {
+    if(init_z) return false;
+    if(init_lambda) return false;
+
     Transform p_H_e; //from parent to end effector
     Eigen::Map< Eigen::VectorXd > x_e (x, 7);
  
@@ -312,9 +315,7 @@ bool InverseKinematicsIPOPT::get_starting_point(Ipopt::Index n, bool init_x, Num
             x[i] = desiredJoints(i-7);
         }
     }
-    
-    if(init_z) return false;
-    if(init_lambda) return false;
+    return true;
 }
 
 bool InverseKinematicsIPOPT::eval_f(Ipopt::Index n, const Number* x, bool new_x, Number& obj_value)
@@ -377,14 +378,16 @@ bool InverseKinematicsIPOPT::eval_jac_g(Ipopt::Index n, const Number* x, bool ne
         
         for(i = 0; i < 7; i++){
             for(j = 7; j < (totalDOF); j++){
-                val++;
+
                 iRow[val] = i; jCol[val] = j;  //the right top part is dense
+                val++;
             }
         }
         
         for(j = 3; j < 7; j++){
-            val++;
+
             iRow[val] = 7; jCol[val] = j;  //i is constantly indicating the eight column, here there are just 4 element corresponding to the elements of the quaternion in the unknown vector
+            val++;
         }
     }
     else{
@@ -418,14 +421,15 @@ bool InverseKinematicsIPOPT::eval_jac_g(Ipopt::Index n, const Number* x, bool ne
         
         for(i = 0; i < 7; i++){
             for(j = 7; j < (totalDOF); j++){
+                values[val] = denseJac(i,j);
                 val++;
-                values[val] = denseJac(i,j);  
             }
         }
         
         for(j = 3; j < 7; j++){
-            val++;
+
             values[val] = denseJac(7,j);
+            val++;
         }
     }
     

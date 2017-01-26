@@ -135,16 +135,16 @@ signed int InverseKinematics::runIK(iDynTree::VectorDynSize& jointsOut)
         }
     }
     
-    if(alreadyOptimized){
+    /*if(alreadyOptimized){
         loader->ReOptimizeTNLP(solverPointer);
         jointsOut = solverPointer->jointResult;
         return solverPointer->exitCode;
     }
-    else {
+    else {*/
             std::cerr << "Passing to loader" << std::endl;
             loader->OptimizeTNLP(solverPointer);
             alreadyOptimized = true;
             jointsOut = solverPointer->jointResult;
             return solverPointer->exitCode;
-    }
+    //}
 }

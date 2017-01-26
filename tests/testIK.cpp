@@ -109,8 +109,8 @@ int main(int argc, char **argv) {
     
     iDynTree::Vector3 gains;
     gains(0) = 100;
-    gains(1) = 100;
-    gains(2) = 1;
+    gains(1) = 10;
+    gains(2) = 0;
     
     solver.setGains(gains);
     
@@ -139,7 +139,7 @@ int main(int argc, char **argv) {
         
         for(int i=0; i < jointsTest.size(); ++i){
             jointsTest(i) = jointsLimits[i].first + ( (double) rand() / RAND_MAX )*(jointsLimits[i].second - jointsLimits[i].first);
-            std::cerr << "-" << model.getJointName(i) <<": "<< jointsTest(i) << std::endl;
+            std::cerr << "$ " << jointsTest(i) << std::endl;
         }
         
         iDynTree::Transform p_H_t = iKDC.getRelativeTransform(parentFrame,targetFrame);
@@ -150,7 +150,7 @@ int main(int argc, char **argv) {
     
         exitCode = solver.runIK(jointsIK);
         
-        std::cerr << "Exit Code" << exitCode << std::endl;
+        std::cerr << "Exit Code " << exitCode << std::endl;
         
         iDynTree::assertTrue((exitCode >= 0));
         

@@ -22,14 +22,36 @@ InverseKinematicsIPOPT::InverseKinematicsIPOPT()
 InverseKinematicsIPOPT::~InverseKinematicsIPOPT()
 {}
 
+void InverseKinematicsIPOPT::removeJoints(const Model modelInput)
+{
+    ModelLoader loader;
+    std::vector< std::string > consideredJoints;
+    int selectedJoints = 0;
+    jointMap.zero();
+    
+    for(int i=0; i < modelInput.getNrOfJoints(); ++i){
+        if(modelInput.getJoint(i)->getNrOfDOFs() == 1){
+            consideredJoints.reserve(1);
+            consideredJoints.push_back(modelInput.getJointName(i));
+            
+            jointMap.resize(jointMap.size() + 1);
+            jointMap(selectedJoints) = i;
+            ++selectedJoints;
+        }
+        else std::cerr << "Joint " << modelInput.getJointName(i) << " ignored (" << modelInput.getJoint(i)->getNrOfDOFs() << " DOF)" << std::endl;
+    }
+    loader.loadReducedModelFromFullModel(modelInput, consideredJoints);
+    model = loader.model();
+}
+
+
 bool InverseKinematicsIPOPT::loadFromModel(const Model modelInput)
 {
-    model = modelInput;
-    
+    removeJoints(modelInput);
     iKDC.loadRobotModel(model);
     
-    jointsLimits.clear();
     jointsLimits.reserve(model.getNrOfDOFs());
+    
     for (iDynTree::JointIndex j = 0; j < model.getNrOfDOFs(); j++) {
             std::pair<double, double> limits; //first is min, second max
             iDynTree::IJointPtr joint;
@@ -44,7 +66,15 @@ bool InverseKinematicsIPOPT::loadFromModel(const Model modelInput)
             jointsLimits.push_back(limits);
         }
     
+    std::cerr << "Joints Limits:" << std::endl;
+    for(int i = 0; i < jointsLimits.size(); ++i){
+        std::cerr<< jointsLimits[i].first<<" < "<< model.getJointName(i) << " < " << jointsLimits[i].second << " ";
+    }
+    std::cerr << std::endl;
+    
     desiredJoints.resize(model.getNrOfDOFs());
+    
+    jointResult.resize(model.getNrOfDOFs());
     
     totalDOF =7 + model.getNrOfDOFs();
     
@@ -290,8 +320,13 @@ bool InverseKinematicsIPOPT::get_starting_point(Ipopt::Index n, bool init_x, Num
 bool InverseKinematicsIPOPT::eval_f(Ipopt::Index n, const Number* x, bool new_x, Number& obj_value)
 {
     Eigen::Map< const Eigen::VectorXd > x_in (x, totalDOF);
+    Eigen::Map < Eigen::VectorXd > gradientIn (gradient.data(), totalDOF);
+    Eigen::VectorXd X = x_in;
     
-    obj_value = 0.5*x_in.transpose()*toEigen(hessian)*x_in + (toEigen(gradient)*x_in)[0];
+    obj_value = 0.5*x_in.transpose()*toEigen(hessian)*x_in;
+    double grad = gradientIn.transpose() * x_in;
+    
+    obj_value += grad;
 
     return true;
 }
@@ -311,7 +346,7 @@ bool InverseKinematicsIPOPT::eval_g(Ipopt::Index n, const Number* x, bool new_x,
     Transform p_H_e;
     Eigen::Map< const Eigen::VectorXd > x_in(x, totalDOF);
     Eigen::Map< Eigen::VectorXd > g_in(g, 8);
-    VectorDynSize joints(totalDOF);
+    VectorDynSize joints(totalDOF-7);
     
     toEigen(joints) = x_in.tail(totalDOF-7);
     iKDC.setJointPos(joints);
@@ -399,7 +434,7 @@ bool InverseKinematicsIPOPT::eval_jac_g(Ipopt::Index n, const Number* x, bool ne
 
 void InverseKinematicsIPOPT::finalize_solution(SolverReturn status, Ipopt::Index n, const Number* x, const Number* z_L, const Number* z_U, Ipopt::Index m, const Number* g, const Number* lambda, Number obj_value, const IpoptData* ip_data, IpoptCalculatedQuantities* ip_cq)
 {
-    if(status == Ipopt::SUCCESS){
+    if((status == Ipopt::SUCCESS)||status == Ipopt::STOP_AT_ACCEPTABLE_POINT){
         VectorDynSize x_in(x, totalDOF);
         Rotation endEffectorOrientation, actualEndEffectorRotation;
         Vector4 actualEndEffectorQuaternion;
@@ -430,36 +465,32 @@ void InverseKinematicsIPOPT::finalize_solution(SolverReturn status, Ipopt::Index
                 exitCode = -3;
                 break;
                 
-            case(Ipopt::STOP_AT_ACCEPTABLE_POINT):
+            case(Ipopt::LOCAL_INFEASIBILITY):
                 exitCode = -4;
                 break;
                 
-            case(Ipopt::LOCAL_INFEASIBILITY):
+            case(Ipopt::USER_REQUESTED_STOP):
                 exitCode = -5;
                 break;
                 
-            case(Ipopt::USER_REQUESTED_STOP):
+            case(Ipopt::DIVERGING_ITERATES):
                 exitCode = -6;
                 break;
                 
-            case(Ipopt::DIVERGING_ITERATES):
+            case(Ipopt::RESTORATION_FAILURE):
                 exitCode = -7;
                 break;
                 
-            case(Ipopt::RESTORATION_FAILURE):
+            case(Ipopt::ERROR_IN_STEP_COMPUTATION):
                 exitCode = -8;
                 break;
                 
-            case(Ipopt::ERROR_IN_STEP_COMPUTATION):
+            case(Ipopt::INVALID_NUMBER_DETECTED):
                 exitCode = -9;
                 break;
                 
-            case(Ipopt::INVALID_NUMBER_DETECTED):
-                exitCode = -10;
-                break;
-                
             case(Ipopt::INTERNAL_ERROR):
-                exitCode = -11;
+                exitCode = -10;
                 break;
         }
     }

@@ -31,6 +31,7 @@ class InverseKinematicsIPOPT : public Ipopt::TNLP {
     iDynTree::MatrixDynSize Ep, Eq, Edof; //extractors from the total variable vector    
     
 public:
+    iDynTree::VectorDynSize jointMap;
     iDynTree::VectorDynSize jointResult;
     iDynTree::Vector3 gains;
     iDynTree::Vector3 desiredPosition;
@@ -48,6 +49,8 @@ public:
     virtual bool loadFromFile(const std::string &filename, const std::vector< std::string > &consideredJoints);
     
     virtual bool loadFromModel(const iDynTree::Model modelInput);
+    
+    void removeJoints(const iDynTree::Model modelInput);
     
     virtual bool setFrames(const std::string& parentFrameIn, const std::string& endEffectorFrameIn);
 

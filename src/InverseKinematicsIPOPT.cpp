@@ -336,8 +336,12 @@ bool InverseKinematicsIPOPT::eval_grad_f(Ipopt::Index n, const Number* x, bool n
 {
     Eigen::Map< const Eigen::VectorXd > x_in (x, totalDOF);
     Eigen::Map< Eigen::VectorXd > Grad_f (grad_f, totalDOF);
+    Grad_f.setZero();
     
     Grad_f = toEigen(hessian)*x_in + toEigen(gradient);
+    std::cout << "------------- gradf " << Grad_f << std::endl;
+    std::cout << "------------- hessian " << toEigen(hessian) << std::endl;
+    std::cout << "------------- gradient " << toEigen(gradient) << std::endl;
     
     return true;
 }

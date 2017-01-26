@@ -19,7 +19,7 @@ int main(int argc, char **argv) {
     
     //srand ( time(NULL) );    
     
-    iDynTree::FrameIndex parentFrame = rand() % model.getNrOfFrames();
+    iDynTree::FrameIndex parentFrame = model.getFrameIndex("root_link");//  rand() % model.getNrOfFrames();
     
     std::cerr<<"Selected parent frame "<< model.getFrameName(parentFrame)<< std::endl;
     
@@ -28,6 +28,7 @@ int main(int argc, char **argv) {
     while(model.getFrameLink(targetFrame) == model.getFrameLink(parentFrame)){
         targetFrame = rand() % model.getNrOfFrames();
     }
+    targetFrame = model.getFrameIndex("r_upper_leg_mtb_acc_11b6");
     std::cerr<<"Selected target frame "<< model.getFrameName(targetFrame)<< std::endl;
     
     std::vector< std::string > consideredJoints;

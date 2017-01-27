@@ -1,5 +1,8 @@
 #include "InverseKinematicsIPOPT.h"
-
+#include <iDynTree/Core/EigenHelpers.h>
+#include <string>
+#include <vector>
+#include <cmath>
 #include <cassert>
 
 using namespace std;
@@ -7,16 +10,15 @@ using namespace iDynTree;
 using namespace Ipopt;
 
 InverseKinematicsIPOPT::InverseKinematicsIPOPT()
-: exitCode(-12)
+: exitCode(-6)
 , parentFrame(0)
 , endEffectorFrame(0)
-,modelLoaded(false)
-,framesLoaded(false)
-,gainsLoaded(false)
-,angleError(0)
+, modelLoaded(false)
+, framesLoaded(false)
+, gainsLoaded(false)
 {
-    positionError.zero();
-    rotationError.Identity();
+    positionResult.zero();
+    quaternionResult.zero();
 }
 
 InverseKinematicsIPOPT::~InverseKinematicsIPOPT()
@@ -31,7 +33,7 @@ void InverseKinematicsIPOPT::removeJoints(const Model modelInput)
     
     for(int i=0; i < modelInput.getNrOfJoints(); ++i){
         if(modelInput.getJoint(i)->getNrOfDOFs() == 1){
-            consideredJoints.reserve(1);
+            
             consideredJoints.push_back(modelInput.getJointName(i));
             
             jointMap.resize(jointMap.size() + 1);
@@ -75,6 +77,9 @@ bool InverseKinematicsIPOPT::loadFromModel(const Model modelInput)
     desiredJoints.resize(model.getNrOfDOFs());
     
     jointResult.resize(model.getNrOfDOFs());
+    jointResult.zero();
+    
+    jointsTemp.resize(model.getNrOfDOFs());
     
     totalDOF =7 + model.getNrOfDOFs();
     
@@ -92,6 +97,13 @@ bool InverseKinematicsIPOPT::loadFromModel(const Model modelInput)
     Edof.resize(model.getNrOfDOFs(),totalDOF);
     Edof.zero();
     toEigen(Edof).block(0,7,model.getNrOfDOFs(),model.getNrOfDOFs()).setIdentity();
+    
+    p_J_wp.resize(iKDC.model());
+    e_J_we.resize(iKDC.model());
+    
+    jacobian.resize(6,totalDOF-7);
+    
+    denseJac.resize(7,totalDOF);
     
     modelLoaded = true;
     return true;
@@ -112,15 +124,14 @@ bool InverseKinematicsIPOPT::loadFromFile(const string& filename, const vector< 
 
     model = loader.model();
     
-    const Model input=model;
-    
     if (!consideredJoints.empty())
-        success = loader.loadReducedModelFromFullModel(input, consideredJoints);
+        success = loader.loadReducedModelFromFullModel(model, consideredJoints);
     
     if (!success){
         std::cerr << "[ERROR] Cannot select joints: " ;
-        for (std::vector< string >::const_iterator i = consideredJoints.begin(); i != consideredJoints.end(); ++i)
+        for (std::vector< string >::const_iterator i = consideredJoints.begin(); i != consideredJoints.end(); ++i){
             std::cerr << *i << ' ';
+        }
         std::cerr << std::endl;
         return false;
     }
@@ -141,10 +152,12 @@ bool InverseKinematicsIPOPT::setFrames(const string& parentFrameIn, const string
     
     if(parentFrame == FRAME_INVALID_INDEX){
         std::cerr<<"[ERROR] Invalid parent frame: "<<parentFrameIn<< std::endl;
-        return false;}
+        return false;
+    }
     else if(endEffectorFrame == FRAME_INVALID_INDEX){
         std::cerr<<"[ERROR] Invalid End Effector Frame: "<<endEffectorFrameIn<< std::endl;
-        return false;}
+        return false;
+    }
     
     framesLoaded = true;
     return true;
@@ -219,9 +232,6 @@ void InverseKinematicsIPOPT::twistToQuaternionTwist(Vector4& quaternion, MatrixF
 void InverseKinematicsIPOPT::relativeJacobian(const VectorDynSize& configuration, MatrixDynSize& jacobianOut)
 {
     Matrix6x6 right2mixed, left2mixed;
-    FrameFreeFloatingJacobian e_J_we_temp, p_J_wp_temp;
-    MatrixDynSize e_J_we, p_J_wp;
-    
     
     iKDC.setJointPos(configuration);
     iKDC.setFrameVelocityRepresentation(BODY_FIXED_REPRESENTATION); //left trivialized velocity
@@ -229,20 +239,10 @@ void InverseKinematicsIPOPT::relativeJacobian(const VectorDynSize& configuration
     left2mixed = iKDC.getRelativeTransformExplicit(endEffectorFrame,parentFrame,endEffectorFrame,endEffectorFrame).asAdjointTransform(); //is the adjoint transformation from left-trivialized velocity to mixed velocity with the origin on the target frame and the orientation of the parent frame
     right2mixed = iKDC.getRelativeTransformExplicit(endEffectorFrame,parentFrame,parentFrame,parentFrame).asAdjointTransform(); //is the adjoit trasnformation from right-trivialized velocity to mixed velocity. It comes from a multiplication of two adjoints: from left to mixed times from right to left
     
-    p_J_wp_temp.resize(iKDC.model());
-    e_J_we_temp.resize(iKDC.model());
-    iKDC.getFrameFreeFloatingJacobian(parentFrame, p_J_wp_temp); //getting the jacobian from world to parent frame with left-trivialized velocity representation
-    iKDC.getFrameFreeFloatingJacobian(endEffectorFrame, e_J_we_temp);  //getting the jacobian from world to target frame with left-trivialized velocity representation
+    iKDC.getFrameFreeFloatingJacobian(parentFrame, p_J_wp); //getting the jacobian from world to parent frame with left-trivialized velocity representation
+    iKDC.getFrameFreeFloatingJacobian(endEffectorFrame, e_J_we);  //getting the jacobian from world to target frame with left-trivialized velocity representation
     
-    e_J_we.resize(6,totalDOF-7);
-    p_J_wp.resize(6,totalDOF-7);
-    
-    toEigen(e_J_we) = toEigen(e_J_we_temp).rightCols(totalDOF-7); //removing the base contribution
-    toEigen(p_J_wp) = toEigen(p_J_wp_temp).rightCols(totalDOF-7);
-    
-    jacobianOut.resize(6,totalDOF-7);
-    jacobianOut.zero();
-    toEigen(jacobianOut) = toEigen(left2mixed)*toEigen(e_J_we) - toEigen(right2mixed)*toEigen(p_J_wp);
+    toEigen(jacobianOut) = toEigen(left2mixed)*(toEigen(e_J_we).rightCols(totalDOF-7)) - toEigen(right2mixed)*(toEigen(p_J_wp).rightCols(totalDOF-7));
 }
 
 
@@ -253,11 +253,11 @@ bool InverseKinematicsIPOPT::get_nlp_info(Ipopt::Index& n, Ipopt::Index& m, Ipop
         std::cerr<<"[ERROR] First you have to load the model"<< std::endl;
         return false;
     }
-    else if(!framesLoaded){
+    if(!framesLoaded){
         std::cerr<<"[ERROR] First you have to select the frames"<< std::endl;
         return false;
     }
-    else if(!gainsLoaded){
+    if(!gainsLoaded){
         std::cerr<<"[ERROR] First you have to define cost function gains"<< std::endl;
         return false;
     }
@@ -322,7 +322,6 @@ bool InverseKinematicsIPOPT::eval_f(Ipopt::Index n, const Number* x, bool new_x,
 {
     Eigen::Map< const Eigen::VectorXd > x_in (x, totalDOF);
     Eigen::Map < Eigen::VectorXd > gradientIn (gradient.data(), totalDOF);
-    Eigen::VectorXd X = x_in;
     
     obj_value = 0.5*x_in.transpose()*toEigen(hessian)*x_in;
     double grad = gradientIn.transpose() * x_in;
@@ -336,7 +335,6 @@ bool InverseKinematicsIPOPT::eval_grad_f(Ipopt::Index n, const Number* x, bool n
 {
     Eigen::Map< const Eigen::VectorXd > x_in (x, totalDOF);
     Eigen::Map< Eigen::VectorXd > Grad_f (grad_f, totalDOF);
-    Grad_f.setZero();
     
     Grad_f = toEigen(hessian)*x_in + toEigen(gradient);
     
@@ -347,11 +345,10 @@ bool InverseKinematicsIPOPT::eval_g(Ipopt::Index n, const Number* x, bool new_x,
 {
     Transform p_H_e;
     Eigen::Map< const Eigen::VectorXd > x_in(x, totalDOF);
-    Eigen::Map< Eigen::VectorXd > g_in(g, 8);
-    VectorDynSize joints(totalDOF-7);
-    
-    toEigen(joints) = x_in.tail(totalDOF-7);
-    iKDC.setJointPos(joints);
+    Eigen::Map< Eigen::VectorXd > g_in(g, 7);
+        
+    toEigen(jointsTemp) = x_in.tail(totalDOF-7);
+    iKDC.setJointPos(jointsTemp);
     p_H_e = iKDC.getRelativeTransform(parentFrame,endEffectorFrame);
     
     g_in.head<3>() = toEigen(p_H_e.getPosition()) - x_in.head<3>();
@@ -386,21 +383,18 @@ bool InverseKinematicsIPOPT::eval_jac_g(Ipopt::Index n, const Number* x, bool ne
     }
     else{
         Eigen::Map< const Eigen::VectorXd > x_in(x, totalDOF);
-        Eigen::Matrix<double,Eigen::Dynamic,Eigen::Dynamic,Eigen::RowMajor> denseJac(m,totalDOF);
         Vector4 quaternion;
-        VectorDynSize configuration;
         MatrixFixSize<7,6> map;
-        MatrixDynSize jacobian;
         
         toEigen(quaternion) = x_in.segment<4>(3);
-        configuration.resize(totalDOF-7);
-        toEigen(configuration) = x_in.tail(totalDOF-7);
+        jointsTemp.resize(totalDOF-7);
+        toEigen(jointsTemp) = x_in.tail(totalDOF-7);
         
         twistToQuaternionTwist(quaternion, map);
-        relativeJacobian(configuration,jacobian);
+        relativeJacobian(jointsTemp,jacobian);
         
         denseJac.setZero();
-        denseJac.block<7,7>(0,0) = -Eigen::Matrix<double,Eigen::Dynamic,Eigen::Dynamic,Eigen::RowMajor> (7,7).setIdentity();
+        denseJac.block<7,7>(0,0) = -(denseJac.block<7,7>(0,0)).setIdentity();
         denseJac.topRightCorner(7,totalDOF-7) = toEigen(map) * toEigen(jacobian);
         
         int val = 0;
@@ -427,63 +421,50 @@ bool InverseKinematicsIPOPT::eval_jac_g(Ipopt::Index n, const Number* x, bool ne
 void InverseKinematicsIPOPT::finalize_solution(SolverReturn status, Ipopt::Index n, const Number* x, const Number* z_L, const Number* z_U, Ipopt::Index m, const Number* g, const Number* lambda, Number obj_value, const IpoptData* ip_data, IpoptCalculatedQuantities* ip_cq)
 {
     if((status == Ipopt::SUCCESS)||status == Ipopt::STOP_AT_ACCEPTABLE_POINT){
-        VectorDynSize x_in(x, totalDOF);
-        Rotation endEffectorOrientation, actualEndEffectorRotation;
-        Vector4 actualEndEffectorQuaternion;
+        Eigen::Map< const Eigen::VectorXd > x_in (x, totalDOF);
         
-        toEigen(jointResult) = toEigen(x_in).tail(totalDOF-7);
+        toEigen(jointResult) = x_in.tail(totalDOF-7);
         
-        toEigen(positionError) = toEigen(desiredPosition) - toEigen(x_in).head(3);
+        toEigen(positionResult) = x_in.head(3);
         
-        endEffectorOrientation.fromQuaternion(desiredQuaternion);
-        toEigen(actualEndEffectorQuaternion) = toEigen(x_in).segment<4>(3);
-        actualEndEffectorRotation.fromQuaternion(actualEndEffectorQuaternion);
-        rotationError = actualEndEffectorRotation*(endEffectorOrientation.inverse());
-        
-        angleError = acos(abs(toEigen(actualEndEffectorQuaternion).dot(toEigen(desiredQuaternion).transpose()))); //Metrics for 3D rotation by Du Q.Huynh
-        exitCode = 0;
+        toEigen(quaternionResult) = x_in.segment<4>(3);
+
+        if(status == Ipopt::SUCCESS){
+            exitCode = 0;
+        }
+        else exitCode = 1;
     }
     else {
         switch(status){
-            case(Ipopt::MAXITER_EXCEEDED):
+            
+            case Ipopt::LOCAL_INFEASIBILITY:
                 exitCode = -1;
                 break;
                 
-            case(Ipopt::CPUTIME_EXCEEDED):
+            case Ipopt::MAXITER_EXCEEDED:
+            case Ipopt::CPUTIME_EXCEEDED:
+            case Ipopt::STOP_AT_TINY_STEP: //PREMATURE STOP
                 exitCode = -2;
                 break;
                 
-            case(Ipopt::STOP_AT_TINY_STEP):
+            case Ipopt::INVALID_NUMBER_DETECTED: //WRONG DATA INSERTION
                 exitCode = -3;
                 break;
                 
-            case(Ipopt::LOCAL_INFEASIBILITY):
+            case Ipopt::DIVERGING_ITERATES:
+            case Ipopt::INTERNAL_ERROR:
+            case Ipopt::ERROR_IN_STEP_COMPUTATION:
+            case Ipopt::RESTORATION_FAILURE: //IPOPT INTERNAL PROBLEM
                 exitCode = -4;
                 break;
                 
-            case(Ipopt::USER_REQUESTED_STOP):
+            case Ipopt::USER_REQUESTED_STOP: //USER REQUESTED STOP
                 exitCode = -5;
                 break;
                 
-            case(Ipopt::DIVERGING_ITERATES):
+            default:
                 exitCode = -6;
-                break;
-                
-            case(Ipopt::RESTORATION_FAILURE):
-                exitCode = -7;
-                break;
-                
-            case(Ipopt::ERROR_IN_STEP_COMPUTATION):
-                exitCode = -8;
-                break;
-                
-            case(Ipopt::INVALID_NUMBER_DETECTED):
-                exitCode = -9;
-                break;
-                
-            case(Ipopt::INTERNAL_ERROR):
-                exitCode = -10;
-                break;
+
         }
     }
 
@@ -495,5 +476,15 @@ bool InverseKinematicsIPOPT::eval_h(Ipopt::Index n, const Number* x, bool new_x,
     return false;
 }
 
+void InverseKinematicsIPOPT::computeErrors(Vector3& positionError, Rotation& rotationError, double* angleError)
+{
+    Rotation endEffectorOrientation, actualEndEffectorRotation;
 
-int main(){}
+    toEigen(positionError) = toEigen(desiredPosition) - toEigen(positionResult);
+
+    endEffectorOrientation.fromQuaternion(desiredQuaternion);
+    actualEndEffectorRotation.fromQuaternion(quaternionResult);
+    rotationError = actualEndEffectorRotation*(endEffectorOrientation.inverse());
+
+    *angleError = acos(abs(toEigen(quaternionResult).dot(toEigen(desiredQuaternion).transpose()))); //Metrics for 3D rotation by Du Q.Huynh
+}

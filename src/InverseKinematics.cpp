@@ -2,9 +2,9 @@
 
 
 InverseKinematics::InverseKinematics()
-:updated(false)
-,initialized(false)
-,alreadyOptimized(false)
+: updated(false)
+, initialized(false)
+, alreadyOptimized(false)
 {
     solverPointer = new InverseKinematicsIPOPT();
     loader = IpoptApplicationFactory();
@@ -15,7 +15,14 @@ InverseKinematics::~InverseKinematics()
 {
 }
 
-bool InverseKinematics::prepareProblem(const std::string& filename, const std::vector< std::string >& consideredJoints, const iDynTree::Vector3& gains, const iDynTree::Vector3& desiredPosition, const iDynTree::Vector4& desiredQuaternion, const iDynTree::VectorDynSize& desiredJoints, const std::string& parentFrame, const std::string& endEffectorFrame)
+bool InverseKinematics::prepareProblem(const std::string& filename, 
+                                       const std::vector< std::string >& consideredJoints, 
+                                       const iDynTree::Vector3& gains, 
+                                       const iDynTree::Vector3& desiredPosition, 
+                                       const iDynTree::Vector4& desiredQuaternion, 
+                                       const iDynTree::VectorDynSize& desiredJoints, 
+                                       const std::string& parentFrame, 
+                                       const std::string& endEffectorFrame)
 {
     bool success;
     success = solverPointer->loadFromFile(filename, consideredJoints);
@@ -48,7 +55,7 @@ bool InverseKinematics::setURDF(const std::string& filename)
 }
 
 
-bool InverseKinematics::setModel(const iDynTree::Model modelInput)
+bool InverseKinematics::setModel(const iDynTree::Model& modelInput)
 {
     alreadyOptimized = false;
     return solverPointer->loadFromModel(modelInput);
@@ -72,7 +79,7 @@ void InverseKinematics::setDesiredQuaternion(const iDynTree::Vector4& desiredQua
     updated = false;
 }
 
-void InverseKinematics::setDesiredTransformation(const iDynTree::Transform p_H_t)
+void InverseKinematics::setDesiredTransformation(const iDynTree::Transform& p_H_t)
 {
     setDesiredPosition(p_H_t.getPosition());
     setDesiredQuaternion(p_H_t.getRotation().asQuaternion());
@@ -107,9 +114,7 @@ bool InverseKinematics::getErrors(iDynTree::Vector3& positionError, iDynTree::Ro
     if(!alreadyOptimized)
         return false;
     
-    positionError = solverPointer->positionError;
-    rotationError = solverPointer->rotationError;
-    *angleError = solverPointer->angleError; 
+    solverPointer->computeErrors(positionError,rotationError,angleError);
     
     return true;
 }
@@ -125,7 +130,7 @@ signed int InverseKinematics::runIK(iDynTree::VectorDynSize& jointsOut)
         status = loader->Initialize();
         if(status != Ipopt::Solve_Succeeded){
             std::cerr<<"[ERROR] Error during IPOPT solver initialization"<< std::endl;
-            return -12;
+            return -6;
         }
     }
     
@@ -134,7 +139,7 @@ signed int InverseKinematics::runIK(iDynTree::VectorDynSize& jointsOut)
         success = update();
         if(!success){
             std::cerr << "[ERROR] Error when trying to update IK data" << std::endl;
-            return -12;
+            return -6;
         }
     }
     

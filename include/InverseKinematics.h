@@ -7,44 +7,51 @@
 class InverseKinematics {
     std::string urdfFileName;
     std::vector< std::string > selectedJoints;
-    Ipopt::SmartPtr<InverseKinematicsIPOPT> solverPointer;
-    Ipopt::SmartPtr<Ipopt::IpoptApplication> loader;
+    Ipopt::SmartPtr< InverseKinematicsIPOPT > solverPointer;
+    Ipopt::SmartPtr< Ipopt::IpoptApplication > loader;
     bool updated;
     bool initialized;
     bool alreadyOptimized;
     
 
-    virtual bool update();
+    bool update();
     
 public:
     InverseKinematics();
     
-    virtual ~InverseKinematics();
+    ~InverseKinematics();
     
-    virtual bool prepareProblem(const std::string& filename, const std::vector< std::string >& consideredJoints, const iDynTree::Vector3& gains, const iDynTree::Vector3& desiredPosition, const iDynTree::Vector4& desiredQuaternion, const iDynTree::VectorDynSize& desiredJoints, const std::string& parentFrame, const std::string& endEffectorFrame);
+    bool prepareProblem(const std::string& filename, 
+                        const std::vector< std::string >& consideredJoints, 
+                        const iDynTree::Vector3& gains, 
+                        const iDynTree::Vector3& desiredPosition, 
+                        const iDynTree::Vector4& desiredQuaternion, 
+                        const iDynTree::VectorDynSize& desiredJoints, 
+                        const std::string& parentFrame, 
+                        const std::string& endEffectorFrame);
     
-    virtual bool setURDF(const std::string &filename, const std::vector< std::string > &consideredJoints);
+    bool setURDF(const std::string &filename, const std::vector< std::string > &consideredJoints);
     
-    virtual bool setURDF(const std::string &filename);
+    bool setURDF(const std::string &filename);
     
-    virtual bool setModel(const iDynTree::Model modelInput);
+    bool setModel(const iDynTree::Model& modelInput);
     
-    virtual void setGains(const iDynTree::Vector3& gains);
+    void setGains(const iDynTree::Vector3& gains);
     
-    virtual void setDesiredPosition(const iDynTree::Vector3 &desiredPosition);
+    void setDesiredPosition(const iDynTree::Vector3& desiredPosition);
     
-    virtual void setDesiredQuaternion(const iDynTree::Vector4 &desiredQuaternion); 
+    void setDesiredQuaternion(const iDynTree::Vector4& desiredQuaternion); 
     
-    virtual void setDesiredTransformation(const iDynTree::Transform p_H_t);
+    void setDesiredTransformation(const iDynTree::Transform& p_H_t);
     
-    virtual void setDesiredJointPositions(const iDynTree::VectorDynSize &desiredJoints);
+    void setDesiredJointPositions(const iDynTree::VectorDynSize& desiredJoints);
     
-    virtual bool setFrames(const std::string& parentFrame, const std::string& endEffectorFrame);
+    bool setFrames(const std::string& parentFrame, const std::string& endEffectorFrame);
     
-    virtual bool update(const iDynTree::Vector3& gains, const iDynTree::Vector3 &desiredPosition, const iDynTree::Vector4 &desiredQuaternion, const iDynTree::VectorDynSize &desiredJoints);
+    bool update(const iDynTree::Vector3& gains, const iDynTree::Vector3 &desiredPosition, const iDynTree::Vector4 &desiredQuaternion, const iDynTree::VectorDynSize &desiredJoints);
     
-    virtual signed int runIK(iDynTree::VectorDynSize& jointsOut);
+    signed int runIK(iDynTree::VectorDynSize& jointsOut);
 
-    virtual bool getErrors(iDynTree::Vector3& positionError, iDynTree::Rotation& rotationError, double* angleError);
+    bool getErrors(iDynTree::Vector3& positionError, iDynTree::Rotation& rotationError, double* angleError);
 };
 #endif /* end of include guard: INVERSEKINEMATICS_H */

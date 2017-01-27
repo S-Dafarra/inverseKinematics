@@ -2,6 +2,7 @@
 #include "URDFdir.h"
 #include "iDynTree/Model/Traversal.h"
 #include <iDynTree/Core/TestUtils.h>
+#include <iDynTree/Core/EigenHelpers.h>
 #include <ctime>
 
 int main(int argc, char **argv) {
@@ -137,6 +138,8 @@ int main(int argc, char **argv) {
     
     for(int j=0; j<4; ++j){
     
+        srand ( clock() );
+        
         std::cerr << "The target joints are:" << std::endl;
         
         for(int i=0; i < jointsTest.size(); ++i){

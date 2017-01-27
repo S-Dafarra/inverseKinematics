@@ -263,9 +263,9 @@ bool InverseKinematicsIPOPT::get_nlp_info(Ipopt::Index& n, Ipopt::Index& m, Ipop
     }
     
     n = totalDOF; //position and orientation of the end effector (3 for position and 4 for the quaternion of the orientation) + joints'DoF, in this order.
-    m = 8; //7 for forward kinematics (relates the 7 dofs of the end effector with the joint dofs) + 1 on the norm of the quaternion.
+    m = 7; //7 for forward kinematics (relates the 7 dofs of the end effector with the joint dofs) + 1 on the norm of the quaternion.
     
-    nnz_jac_g = 7 + (totalDOF-7)*7 + 4;
+    nnz_jac_g = 7 + (totalDOF-7)*7;
     nnz_h_lag = n*n; //dense
     
     index_style = Ipopt::TNLP::C_STYLE;
@@ -275,7 +275,7 @@ bool InverseKinematicsIPOPT::get_nlp_info(Ipopt::Index& n, Ipopt::Index& m, Ipop
 
 bool InverseKinematicsIPOPT::get_bounds_info(Ipopt::Index n, Number* x_l, Number* x_u, Ipopt::Index m, Number* g_l, Number* g_u)
 {
-    assert((n == totalDOF) && (m==8));
+    assert((n == totalDOF) && (m==7));
     for (Ipopt::Index i = 0; i < 3; ++i) {
         x_l[i] = -2e+19;
         x_u[i] =  2e+19;
@@ -293,8 +293,7 @@ bool InverseKinematicsIPOPT::get_bounds_info(Ipopt::Index n, Number* x_l, Number
     for (Ipopt::Index c = 0; c < 7; c++){
         g_l[c] = g_u[c] = 0; //forward kinematics equality constriants
     }
-    g_l[7] = g_u[7] = 1; //equality constraint on the modulus of the quaternion
-    
+   
     return true;
 }
 
@@ -359,8 +358,6 @@ bool InverseKinematicsIPOPT::eval_g(Ipopt::Index n, const Number* x, bool new_x,
     
     g_in.segment<4>(3) = toEigen(p_H_e.getRotation().asQuaternion()) - x_in.segment<4>(3);
     
-    g_in(7) = x_in.segment<4>(3).squaredNorm();
-    
     return true;
 
 }
@@ -385,12 +382,7 @@ bool InverseKinematicsIPOPT::eval_jac_g(Ipopt::Index n, const Number* x, bool ne
                 val++;
             }
         }
-        
-        for(j = 3; j < 7; j++){
 
-            iRow[val] = 7; jCol[val] = j;  //i is constantly indicating the eight column, here there are just 4 element corresponding to the elements of the quaternion in the unknown vector
-            val++;
-        }
     }
     else{
         Eigen::Map< const Eigen::VectorXd > x_in(x, totalDOF);
@@ -410,7 +402,6 @@ bool InverseKinematicsIPOPT::eval_jac_g(Ipopt::Index n, const Number* x, bool ne
         denseJac.setZero();
         denseJac.block<7,7>(0,0) = -Eigen::Matrix<double,Eigen::Dynamic,Eigen::Dynamic,Eigen::RowMajor> (7,7).setIdentity();
         denseJac.topRightCorner(7,totalDOF-7) = toEigen(map) * toEigen(jacobian);
-        denseJac.block<1,4>(7,3) = 2*toEigen(quaternion);
         
         int val = 0;
         int i = 0;
@@ -427,12 +418,7 @@ bool InverseKinematicsIPOPT::eval_jac_g(Ipopt::Index n, const Number* x, bool ne
                 val++;
             }
         }
-        
-        for(j = 3; j < 7; j++){
 
-            values[val] = denseJac(7,j);
-            val++;
-        }
     }
     
     return true;

@@ -14,7 +14,6 @@ InverseKinematicsIPOPT::InverseKinematicsIPOPT()
 , parentFrame(0)
 , endEffectorFrame(0)
 , modelLoaded(false)
-, framesLoaded(false)
 , gainsLoaded(false)
 {
     positionResult.zero();
@@ -24,32 +23,12 @@ InverseKinematicsIPOPT::InverseKinematicsIPOPT()
 InverseKinematicsIPOPT::~InverseKinematicsIPOPT()
 {}
 
-void InverseKinematicsIPOPT::removeJoints(const Model modelInput)
+bool InverseKinematicsIPOPT::loadFromModel(const Model modelInput, FrameIndex parentFrameIn, FrameIndex targetFrame)
 {
-    ModelLoader loader;
-    std::vector< std::string > consideredJoints;
-    int selectedJoints = 0;
-    jointMap.zero();
+    parentFrame = parentFrameIn;
+    endEffectorFrame = targetFrame;
+    model = modelInput;
     
-    for(int i=0; i < modelInput.getNrOfJoints(); ++i){
-        if(modelInput.getJoint(i)->getNrOfDOFs() == 1){
-            
-            consideredJoints.push_back(modelInput.getJointName(i));
-            
-            jointMap.resize(jointMap.size() + 1);
-            jointMap(selectedJoints) = i;
-            ++selectedJoints;
-        }
-        else std::cerr << "Joint " << modelInput.getJointName(i) << " ignored (" << modelInput.getJoint(i)->getNrOfDOFs() << " DOF)" << std::endl;
-    }
-    loader.loadReducedModelFromFullModel(modelInput, consideredJoints);
-    model = loader.model();
-}
-
-
-bool InverseKinematicsIPOPT::loadFromModel(const Model modelInput)
-{
-    removeJoints(modelInput);
     iKDC.loadRobotModel(model);
     
     jointsLimits.reserve(model.getNrOfDOFs());
@@ -108,61 +87,6 @@ bool InverseKinematicsIPOPT::loadFromModel(const Model modelInput)
     modelLoaded = true;
     return true;
 }
-
-
-bool InverseKinematicsIPOPT::loadFromFile(const string& filename, const vector< string >& consideredJoints)
-{
-    bool success= false;
-    ModelLoader loader;
-
-    success = loader.loadModelFromFile(filename);
-    
-    if (!success) {
-        std::cerr << "[ERROR] Error loading URDF model from " << filename << std::endl;
-        return false;
-    }
-
-    model = loader.model();
-    
-    if (!consideredJoints.empty())
-        success = loader.loadReducedModelFromFullModel(model, consideredJoints);
-    
-    if (!success){
-        std::cerr << "[ERROR] Cannot select joints: " ;
-        for (std::vector< string >::const_iterator i = consideredJoints.begin(); i != consideredJoints.end(); ++i){
-            std::cerr << *i << ' ';
-        }
-        std::cerr << std::endl;
-        return false;
-    }
-    
-    model = loader.model();
-    
-    return loadFromModel(model);
-}
-
-bool InverseKinematicsIPOPT::setFrames(const string& parentFrameIn, const string& endEffectorFrameIn)
-{
-   if(!modelLoaded){
-       std::cerr<<"[ERROR] First you have to load a model"<< std::endl;
-       return false;
-   }
-    parentFrame = model.getFrameIndex(parentFrameIn);
-    endEffectorFrame = model.getFrameIndex(endEffectorFrameIn);
-    
-    if(parentFrame == FRAME_INVALID_INDEX){
-        std::cerr<<"[ERROR] Invalid parent frame: "<<parentFrameIn<< std::endl;
-        return false;
-    }
-    else if(endEffectorFrame == FRAME_INVALID_INDEX){
-        std::cerr<<"[ERROR] Invalid End Effector Frame: "<<endEffectorFrameIn<< std::endl;
-        return false;
-    }
-    
-    framesLoaded = true;
-    return true;
-}
-
 
 bool InverseKinematicsIPOPT::update(const Vector3& gainsIn, const Vector3& desiredPositionIn, const Vector4& desiredQuaternionIn, const VectorDynSize& desiredJointsIn)
 {
@@ -251,10 +175,6 @@ bool InverseKinematicsIPOPT::get_nlp_info(Ipopt::Index& n, Ipopt::Index& m, Ipop
 {
     if(!modelLoaded){
         std::cerr<<"[ERROR] First you have to load the model"<< std::endl;
-        return false;
-    }
-    if(!framesLoaded){
-        std::cerr<<"[ERROR] First you have to select the frames"<< std::endl;
         return false;
     }
     if(!gainsLoaded){

@@ -9,6 +9,7 @@ int main(int argc, char **argv) {
     
     iDynTree::ModelLoader modelLoader;
     iDynTree::Model model;
+    std::string parentFrameName, targetFrameName;
     
     std::cerr<<"Load model from "<<getAbsModelPath("iCubGenova02.urdf")<< std::endl;
     bool ok=modelLoader.loadModelFromFile(getAbsModelPath("iCubGenova02.urdf"));
@@ -22,7 +23,8 @@ int main(int argc, char **argv) {
     
     iDynTree::FrameIndex parentFrame = rand() % model.getNrOfFrames(); //model.getFrameIndex("root_link");
     
-    std::cerr<<"Selected parent frame "<< model.getFrameName(parentFrame)<< std::endl;
+    parentFrameName = model.getFrameName(parentFrame);
+    std::cerr<<"Selected parent frame "<< parentFrameName << std::endl;
     
     iDynTree::FrameIndex targetFrame = parentFrame;
     
@@ -30,7 +32,8 @@ int main(int argc, char **argv) {
         targetFrame = rand() % model.getNrOfFrames();
     }
     //targetFrame = model.getFrameIndex("r_upper_leg_mtb_acc_11b6");
-    std::cerr<<"Selected target frame "<< model.getFrameName(targetFrame)<< std::endl;
+    targetFrameName = model.getFrameName(targetFrame);
+    std::cerr<<"Selected target frame "<< targetFrameName << std::endl;
     
     std::vector< std::string > consideredJoints;
     iDynTree::Traversal traversal;
@@ -44,8 +47,8 @@ int main(int argc, char **argv) {
         iDynTree::LinkIndex parentLinkIdx = traversal.getParentLinkFromLinkIndex(visitedLink)->getIndex();
         iDynTree::IJointConstPtr joint = traversal.getParentJointFromLinkIndex(visitedLink);
         
-        consideredJoints.reserve(1);
-        consideredJoints.insert(consideredJoints.begin(), model.getJointName(joint->getIndex()));
+        if(joint->getNrOfDOFs() == 1)
+            consideredJoints.insert(consideredJoints.begin(), model.getJointName(joint->getIndex()));
         
         visitedLink = parentLinkIdx;
     }
@@ -96,17 +99,13 @@ int main(int argc, char **argv) {
     
     std::cerr<<"Created solver object"<<std::endl;
     
-    ok = solver.setModel(model);
+    //ok = solver.setModel(model, parentFrameName, targetFrameName);
+    ok = solver.setModelfromURDF(getAbsModelPath("iCubGenova02.urdf"), parentFrameName, targetFrameName);
+    //ok = solver.setModelfromURDF(getAbsModelPath("iCubGenova02.urdf"), parentFrameName, targetFrameName, consideredJoints);
     
     iDynTree::assertTrue(ok);
     
     std::cerr << "Model Set" <<std::endl;
-    
-    ok = solver.setFrames(model.getFrameName(parentFrame), model.getFrameName(targetFrame));
-    
-    iDynTree::assertTrue(ok);
-    
-    std::cerr << "Frames Set" <<std::endl;
     
     iDynTree::Vector3 gains;
     gains(0) = 100;
@@ -149,7 +148,7 @@ int main(int argc, char **argv) {
         
         iKDC.setJointPos(jointsTest);
         
-        iDynTree::Transform p_H_t = iKDC.getRelativeTransform(parentFrame,targetFrame);
+        iDynTree::Transform p_H_t = iKDC.getRelativeTransform(model.getFrameIndex(parentFrameName),model.getFrameIndex(targetFrameName));
         
         iKDC.getJointPos(jointsTest);
         
@@ -174,8 +173,8 @@ int main(int argc, char **argv) {
        
         iDynTree::assertTrue(iKDC.setJointPos(jointsIK));
         
-        iDynTree::toEigen(positionErrorComputed) = iDynTree::toEigen(p_H_t.getPosition()) - iDynTree::toEigen( iKDC.getRelativeTransform(parentFrame,targetFrame).getPosition() );
-        rotationErrorComputed = p_H_t.getRotation()*(iKDC.getRelativeTransform(parentFrame,targetFrame).getRotation().inverse());
+        iDynTree::toEigen(positionErrorComputed) = iDynTree::toEigen(p_H_t.getPosition()) - iDynTree::toEigen( iKDC.getRelativeTransform(model.getFrameIndex(parentFrameName),model.getFrameIndex(targetFrameName)).getPosition() );
+        rotationErrorComputed = p_H_t.getRotation()*(iKDC.getRelativeTransform(model.getFrameIndex(parentFrameName),model.getFrameIndex(targetFrameName)).getRotation().inverse());
         
         std::cerr << "Computed position error: " << positionErrorComputed.toString() << std::endl;
         std::cerr << "Computed rotation error: " << std::endl << rotationErrorComputed.toString() << std::endl;

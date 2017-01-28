@@ -17,7 +17,6 @@ class InverseKinematicsIPOPT : public Ipopt::TNLP {
     iDynTree::Model model;
     bool modelLoaded;
     bool gainsLoaded;
-    bool framesLoaded;
     iDynTree::KinDynComputations iKDC;
     iDynTree::MatrixDynSize hessian;
     iDynTree::VectorDynSize gradient;
@@ -40,7 +39,6 @@ class InverseKinematicsIPOPT : public Ipopt::TNLP {
     void relativeJacobian(const iDynTree::VectorDynSize &configuration, iDynTree::MatrixDynSize& jacobianOut);
     
 public:
-    iDynTree::VectorDynSize jointMap;
     iDynTree::VectorDynSize jointResult;
     iDynTree::Vector3 gains;
     iDynTree::Vector3 desiredPosition;
@@ -52,11 +50,7 @@ public:
     
     ~InverseKinematicsIPOPT();
 
-    bool loadFromFile(const std::string &filename, const std::vector< std::string > &consideredJoints);
-    
-    bool loadFromModel(const iDynTree::Model modelInput);
-    
-    bool setFrames(const std::string& parentFrameIn, const std::string& endEffectorFrameIn);
+    bool loadFromModel(const iDynTree::Model modelInput, iDynTree::FrameIndex parentFrameIn, iDynTree::FrameIndex targetFrame);
 
     bool update(const iDynTree::Vector3& gainsIn, const iDynTree::Vector3 &desiredPositionIn, const iDynTree::Vector4 &desiredQuaternionIn, const iDynTree::VectorDynSize &desiredJointsIn);
 

@@ -5,8 +5,6 @@
 
 
 class InverseKinematics {
-    std::string urdfFileName;
-    std::vector< std::string > selectedJoints;
     Ipopt::SmartPtr< InverseKinematicsIPOPT > solverPointer;
     Ipopt::SmartPtr< Ipopt::IpoptApplication > loader;
     bool updated;
@@ -15,26 +13,20 @@ class InverseKinematics {
     
 
     bool update();
+    bool getReducedModel(const iDynTree::Model& fullModel, const std::vector< std::string >& consideredJoints, iDynTree::Model& modelOutput);
+    bool getFrameIndeces(const std::string& parentFrame, const std::string& endEffectorFrame, const iDynTree::Model model, iDynTree::FrameIndex& parentFrameIndex, iDynTree::FrameIndex& endEffectorFrameIndex);
+    void removeUnsupportedJoints(const iDynTree::Model& modelInput, iDynTree::Model& modelOutput);
     
 public:
     InverseKinematics();
     
     ~InverseKinematics();
+
+    bool setModelfromURDF(const std::string& URDFfilename, const std::string& parentFrame, const std::string& endEffectorFrame, const std::vector< std::string >& consideredJoints);
     
-    bool prepareProblem(const std::string& filename, 
-                        const std::vector< std::string >& consideredJoints, 
-                        const iDynTree::Vector3& gains, 
-                        const iDynTree::Vector3& desiredPosition, 
-                        const iDynTree::Vector4& desiredQuaternion, 
-                        const iDynTree::VectorDynSize& desiredJoints, 
-                        const std::string& parentFrame, 
-                        const std::string& endEffectorFrame);
+    bool setModelfromURDF(const std::string& URDFfilename, const std::string& parentFrame, const std::string& endEffectorFrame);
     
-    bool setURDF(const std::string &filename, const std::vector< std::string > &consideredJoints);
-    
-    bool setURDF(const std::string &filename);
-    
-    bool setModel(const iDynTree::Model& modelInput);
+    bool setModel(const iDynTree::Model& modelInput, const std::string& parentFrame, const std::string& endEffectorFrame);
     
     void setGains(const iDynTree::Vector3& gains);
     
@@ -45,8 +37,6 @@ public:
     void setDesiredTransformation(const iDynTree::Transform& p_H_t);
     
     void setDesiredJointPositions(const iDynTree::VectorDynSize& desiredJoints);
-    
-    bool setFrames(const std::string& parentFrame, const std::string& endEffectorFrame);
     
     bool update(const iDynTree::Vector3& gains, const iDynTree::Vector3 &desiredPosition, const iDynTree::Vector4 &desiredQuaternion, const iDynTree::VectorDynSize &desiredJoints);
     

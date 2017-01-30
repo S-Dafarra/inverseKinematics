@@ -15,6 +15,7 @@ include_directories(SYSTEM ${IPOPT_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIR})
 include_directories(include)
 
 add_library(${PROJECT_NAME}  SHARED src/InverseKinematicsIPOPT.cpp include/InverseKinematicsIPOPT.h
+                                    src/InverseKinematicsV2IPOPT.cpp include/InverseKinematicsV2IPOPT.h
                                     src/InverseKinematics.cpp include/InverseKinematics.h)
 
 target_link_libraries(${PROJECT_NAME} ${iDynTree_LIBRARIES} ${IPOPT_LIBRARIES})

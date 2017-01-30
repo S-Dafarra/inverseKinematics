@@ -1,11 +1,11 @@
 #ifndef INVERSEKINEMATICS_H
 #define INVERSEKINEMATICS_H
 
-#include "InverseKinematicsIPOPT.h"
+#include "InverseKinematicsV2IPOPT.h"
 
 
 class InverseKinematics {
-    Ipopt::SmartPtr< InverseKinematicsIPOPT > solverPointer;
+    Ipopt::SmartPtr< InverseKinematicsV2IPOPT > solverPointer;
     Ipopt::SmartPtr< Ipopt::IpoptApplication > loader;
     bool updated;
     bool initialized;

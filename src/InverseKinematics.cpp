@@ -6,7 +6,7 @@ InverseKinematics::InverseKinematics()
 , initialized(false)
 , alreadyOptimized(false)
 {
-    solverPointer = new InverseKinematicsIPOPT();
+    solverPointer = new InverseKinematicsV2IPOPT();
     loader = IpoptApplicationFactory();
     loader->Options()->SetStringValue("hessian_approximation", "limited-memory");
 }
@@ -250,7 +250,7 @@ signed int InverseKinematics::runIK(iDynTree::VectorDynSize& jointsOut)
         Ipopt::ApplicationReturnStatus status;
         //loader->Options()->SetStringValue("derivative_test", "first-order");
         loader->Options()->SetIntegerValue("print_level", 0);
-        //loader->Options()->SetStringValue("linear_solver", "ma57");
+        loader->Options()->SetStringValue("linear_solver", "ma57");
 
         status = loader->Initialize();
         if(status != Ipopt::Solve_Succeeded){

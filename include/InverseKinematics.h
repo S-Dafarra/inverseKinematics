@@ -2,7 +2,7 @@
 #define INVERSEKINEMATICS_H
 
 #include "InverseKinematicsV2IPOPT.h"
-
+#include <string>
 
 class InverseKinematics {
     Ipopt::SmartPtr< InverseKinematicsV2IPOPT > solverPointer;
@@ -10,15 +10,20 @@ class InverseKinematics {
     bool updated;
     bool initialized;
     bool alreadyOptimized;
+    std::string _parentFrame;
+    std::string _targetFrame;
     
 
     bool update();
     bool getReducedModel(const iDynTree::Model& fullModel, const std::vector< std::string >& consideredJoints, iDynTree::Model& modelOutput);
     bool getFrameIndeces(const std::string& parentFrame, const std::string& endEffectorFrame, const iDynTree::Model model, iDynTree::FrameIndex& parentFrameIndex, iDynTree::FrameIndex& endEffectorFrameIndex);
     void removeUnsupportedJoints(const iDynTree::Model& modelInput, iDynTree::Model& modelOutput);
+    bool autoSelectJointsFromTraversal(const iDynTree::Model& modelInput, const std::string& parentFrame, const std::string& endEffectorFrame, iDynTree::Model& modelOutput);
     
 public:
     InverseKinematics();
+    
+    InverseKinematics(const std::string& solverName);
     
     ~InverseKinematics();
 
@@ -26,7 +31,7 @@ public:
     
     bool setModelfromURDF(const std::string& URDFfilename, const std::string& parentFrame, const std::string& endEffectorFrame);
     
-    bool setModel(const iDynTree::Model& modelInput, const std::string& parentFrame, const std::string& endEffectorFrame);
+    bool setModel(const iDynTree::Model& modelInput, const std::string& parentFrame, const std::string& endEffectorFrame, const bool autoSelectJoints = true);
     
     void setGains(const iDynTree::Vector3& gains);
     
@@ -43,5 +48,7 @@ public:
     signed int runIK(iDynTree::VectorDynSize& jointsOut);
 
     bool getErrors(iDynTree::Vector3& positionError, iDynTree::Rotation& rotationError, double* angleError);
+    
+    void getFrames(std::string& parentFrame, std::string& endEffectorFrame);
 };
 #endif /* end of include guard: INVERSEKINEMATICS_H */

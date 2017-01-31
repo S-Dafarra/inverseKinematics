@@ -7,6 +7,8 @@ include(YCMDefaultDirs)
 
 find_package(iDynTree REQUIRED)
 find_package(IPOPT REQUIRED)
+
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 find_package(Eigen3 REQUIRED)
 
 

@@ -95,12 +95,16 @@ int main(int argc, char **argv) {
     }
     std::cerr << std::endl;
     
+    //////////////////////////////////////
+    /* Calling Inverse Kinematcs solver */
+    //////////////////////////////////////
+    
     InverseKinematics solver;
     
     std::cerr<<"Created solver object"<<std::endl;
     
-    //ok = solver.setModel(model, parentFrameName, targetFrameName);
-    ok = solver.setModelfromURDF(getAbsModelPath("iCubGenova02.urdf"), parentFrameName, targetFrameName);
+    ok = solver.setModel(model, parentFrameName, targetFrameName);
+    //ok = solver.setModelfromURDF(getAbsModelPath("iCubGenova02.urdf"), parentFrameName, targetFrameName);
     //ok = solver.setModelfromURDF(getAbsModelPath("iCubGenova02.urdf"), parentFrameName, targetFrameName, consideredJoints);
     
     iDynTree::assertTrue(ok);

@@ -11,6 +11,18 @@ InverseKinematics::InverseKinematics()
     loader->Options()->SetStringValue("hessian_approximation", "limited-memory");
 }
 
+InverseKinematics::InverseKinematics(const std::string& solverName)
+: updated(false)
+, initialized(false)
+, alreadyOptimized(false)
+{
+    solverPointer = new InverseKinematicsV2IPOPT();
+    loader = IpoptApplicationFactory();
+    loader->Options()->SetStringValue("hessian_approximation", "limited-memory");
+    loader->Options()->SetStringValue("linear_solver", solverName);
+}
+
+
 InverseKinematics::~InverseKinematics()
 {
 }
@@ -23,7 +35,7 @@ bool InverseKinematics::getReducedModel(const iDynTree::Model& fullModel, const 
     success = loader.loadReducedModelFromFullModel(fullModel, consideredJoints);
 
     if (!success){
-        std::cerr << "[ERROR] Cannot select joints: " ;
+        std::cerr << "[ERROR IK] Cannot select joints: " ;
         for (std::vector< std::string >::const_iterator i = consideredJoints.begin(); i != consideredJoints.end(); ++i){
             std::cerr << *i << ' ';
         }
@@ -41,11 +53,11 @@ bool InverseKinematics::getFrameIndeces(const std::string& parentFrame, const st
     endEffectorFrameIndex = model.getFrameIndex(endEffectorFrame);
 
     if(parentFrameIndex == iDynTree::FRAME_INVALID_INDEX){
-        std::cerr<<"[ERROR] Invalid parent frame: "<<parentFrame<< std::endl;
+        std::cerr<<"[ERROR IK] Invalid parent frame: "<<parentFrame<< std::endl;
         return false;
     }
     else if(endEffectorFrameIndex == iDynTree::FRAME_INVALID_INDEX){
-        std::cerr<<"[ERROR] Invalid End Effector Frame: "<<endEffectorFrame<< std::endl;
+        std::cerr<<"[ERROR IK] Invalid End Effector Frame: "<<endEffectorFrame<< std::endl;
         return false;
     }
     
@@ -74,6 +86,53 @@ void InverseKinematics::removeUnsupportedJoints(const iDynTree::Model& modelInpu
     modelOutput = loader.model();
 }
 
+bool InverseKinematics::autoSelectJointsFromTraversal(const iDynTree::Model& modelInput, const std::string& parentFrame, const std::string& endEffectorFrame, iDynTree::Model& modelOutput)
+{
+    iDynTree::FrameIndex parent;
+    iDynTree::FrameIndex endEffector;
+    bool success;
+    
+    
+    std::cerr << "[IK] Automatically select joints between "<< parentFrame << " and " << endEffectorFrame << std::endl; 
+    
+    success = getFrameIndeces(parentFrame, endEffectorFrame, modelInput, parent, endEffector);
+    if(!success)
+        return false; 
+    
+    std::vector< std::string > consideredJointsAuto;
+    iDynTree::Traversal traversal;
+    
+    modelInput.computeFullTreeTraversal(traversal, modelInput.getFrameLink(parent));
+    
+    iDynTree::LinkIndex visitedLink = modelInput.getFrameLink(endEffector);
+    
+    iDynTree::LinkIndex parentLinkIdx;
+    iDynTree::IJointConstPtr joint;
+    
+    while (visitedLink != traversal.getBaseLink()->getIndex())
+    {
+        parentLinkIdx = traversal.getParentLinkFromLinkIndex(visitedLink)->getIndex();
+        joint = traversal.getParentJointFromLinkIndex(visitedLink);
+        
+        consideredJointsAuto.insert(consideredJointsAuto.begin(), modelInput.getJointName(joint->getIndex()));
+        
+        visitedLink = parentLinkIdx;
+    }
+    
+    std::cerr << "[IK] Considered joints are:"<< std::endl;
+    for (std::vector< std::string >::const_iterator i = consideredJointsAuto.begin(); i != consideredJointsAuto.end(); ++i){
+        std::cerr <<"-"<< *i << std::endl;
+    }
+    std::cerr << std::endl;
+    
+    success = getReducedModel(modelInput, consideredJointsAuto, modelOutput);
+    if(!success)
+        return false;
+    
+    return true;
+}
+
+
 
 bool InverseKinematics::setModelfromURDF(const std::string& URDFfilename, const std::string& parentFrame, const std::string& endEffectorFrame, const std::vector< std::string >& consideredJoints)
 {
@@ -100,6 +159,9 @@ bool InverseKinematics::setModelfromURDF(const std::string& URDFfilename, const 
         success = getFrameIndeces(parentFrame, endEffectorFrame, model, parent, endEffector);
         if(!success)
             return false; 
+        
+        _parentFrame = parentFrame;
+        _targetFrame = endEffectorFrame;
     }
     
     else if (!consideredJoints.empty()){
@@ -112,44 +174,15 @@ bool InverseKinematics::setModelfromURDF(const std::string& URDFfilename, const 
         
         success = getFrameIndeces(parentFrame, endEffectorFrame, model, parent, endEffector);
         if(!success)
-            return false; 
+            return false;
+        
+        _parentFrame = parentFrame;
+        _targetFrame = endEffectorFrame;
     }
     
     else {
-        
-        std::cerr << "[IK] Automatically select joints between "<< parentFrame << " and " << endEffectorFrame << std::endl; 
-        
-        success = getFrameIndeces(parentFrame, endEffectorFrame, model, parent, endEffector);
-        if(!success)
-            return false; 
-        
-        std::vector< std::string > consideredJointsAuto;
-        iDynTree::Traversal traversal;
-        
-        model.computeFullTreeTraversal(traversal, model.getFrameLink(parent));
-        
-        iDynTree::LinkIndex visitedLink = model.getFrameLink(endEffector);
-        
-        iDynTree::LinkIndex parentLinkIdx;
-        iDynTree::IJointConstPtr joint;
-        
-        while (visitedLink != traversal.getBaseLink()->getIndex())
-        {
-            parentLinkIdx = traversal.getParentLinkFromLinkIndex(visitedLink)->getIndex();
-            joint = traversal.getParentJointFromLinkIndex(visitedLink);
-            
-            consideredJointsAuto.insert(consideredJointsAuto.begin(), model.getJointName(joint->getIndex()));
-            
-            visitedLink = parentLinkIdx;
-        }
-        
-        std::cerr << "[IK] Considered joints are:"<< std::endl;
-        for (std::vector< std::string >::const_iterator i = consideredJointsAuto.begin(); i != consideredJointsAuto.end(); ++i){
-            std::cerr <<"-"<< *i << std::endl;
-        }
-        std::cerr << std::endl;
-        
-        success = getReducedModel(model, consideredJointsAuto, model);
+
+        success = autoSelectJointsFromTraversal(model.copy(), parentFrame, endEffectorFrame, model);
         if(!success)
             return false;
         
@@ -158,6 +191,9 @@ bool InverseKinematics::setModelfromURDF(const std::string& URDFfilename, const 
         success = getFrameIndeces(parentFrame, endEffectorFrame, model, parent, endEffector);
         if(!success)
             return false;
+        
+        _parentFrame = parentFrame;
+        _targetFrame = endEffectorFrame;
     }
 
     return solverPointer->loadFromModel(model, parent, endEffector);
@@ -176,18 +212,27 @@ bool InverseKinematics::setModelfromURDF(const std::string& URDFfilename, const 
 
 
 
-bool InverseKinematics::setModel(const iDynTree::Model& modelInput, const std::string& parentFrame, const std::string& endEffectorFrame)
+bool InverseKinematics::setModel(const iDynTree::Model& modelInput, const std::string& parentFrame, const std::string& endEffectorFrame, const bool autoSelectJoints)
 {
     iDynTree::FrameIndex parentFrameIndex;
     iDynTree::FrameIndex endEffectorFrameIndex;
     iDynTree::Model model;
     
-    removeUnsupportedJoints(modelInput,model);
-    
     alreadyOptimized = false;
+        
+    if(autoSelectJoints){
+        if(!autoSelectJointsFromTraversal(modelInput, parentFrame, endEffectorFrame, model))
+            return false;
+    }
+    
+    removeUnsupportedJoints(model.copy(),model);
+    
     if(!getFrameIndeces(parentFrame,endEffectorFrame, model, parentFrameIndex, endEffectorFrameIndex))
         return false;
 
+    _parentFrame = parentFrame;
+    _targetFrame = endEffectorFrame;
+    
     return solverPointer->loadFromModel(model, parentFrameIndex, endEffectorFrameIndex);
 }
 
@@ -243,16 +288,23 @@ bool InverseKinematics::getErrors(iDynTree::Vector3& positionError, iDynTree::Ro
     return true;
 }
 
+void InverseKinematics::getFrames(std::string& parentFrame, std::string& endEffectorFrame)
+{
+    parentFrame = _parentFrame;
+    endEffectorFrame = _targetFrame;
+}
+
+
 
 signed int InverseKinematics::runIK(iDynTree::VectorDynSize& jointsOut)
 {
     if (!initialized){
         Ipopt::ApplicationReturnStatus status;
         //loader->Options()->SetStringValue("derivative_test", "first-order");
-        loader->Options()->SetIntegerValue("print_level", 0);
-        loader->Options()->SetStringValue("linear_solver", "ma57");
-
+        loader->Options()->SetIntegerValue("print_level", 1);
+        
         status = loader->Initialize();
+        
         if(status != Ipopt::Solve_Succeeded){
             std::cerr<<"[ERROR] Error during IPOPT solver initialization"<< std::endl;
             return -6;

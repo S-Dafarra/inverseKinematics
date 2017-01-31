@@ -1,7 +1,12 @@
 #ifndef INVERSEKINEMATICSIPOPT_H
 #define INVERSEKINEMATICSIPOPT_H
 
+#define HAVE_STDDEF_H
+#define HAVE_CSTDDEF
 #include <IpTNLP.hpp>
+#undef HAVE_STDDEF_H
+#undef HAVE_CSTDDEF //workaroud for missing libraries
+
 #include <iDynTree/Core/VectorFixSize.h>
 #include <iDynTree/Core/VectorDynSize.h>
 #include <iDynTree/Core/MatrixDynSize.h>
@@ -48,7 +53,7 @@ public:
     
     InverseKinematicsIPOPT();
     
-    ~InverseKinematicsIPOPT();
+    virtual ~InverseKinematicsIPOPT();
 
     bool loadFromModel(const iDynTree::Model modelInput, iDynTree::FrameIndex parentFrameIn, iDynTree::FrameIndex targetFrame);
 
@@ -88,7 +93,7 @@ public:
                         bool new_lambda, Ipopt::Index nele_hess, Ipopt::Index* iRow,
                         Ipopt::Index* jCol, Ipopt::Number* values);
 
-    void finalize_solution(Ipopt::SolverReturn status, Ipopt::Index n,
+    virtual void finalize_solution(Ipopt::SolverReturn status, Ipopt::Index n,
                                    const Ipopt::Number* x, const Ipopt::Number* z_L,
                                    const Ipopt::Number* z_U, Ipopt::Index m, const Ipopt::Number* g,
                                    const Ipopt::Number* lambda, Ipopt::Number obj_value,

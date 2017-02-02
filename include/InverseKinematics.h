@@ -12,7 +12,6 @@ class InverseKinematics {
     bool alreadyOptimized;
     std::string _parentFrame;
     std::string _targetFrame;
-    
 
     bool update();
     bool getReducedModel(const iDynTree::Model& fullModel, const std::vector< std::string >& consideredJoints, iDynTree::Model& modelOutput);
@@ -33,7 +32,7 @@ public:
     
     bool setModel(const iDynTree::Model& modelInput, const std::string& parentFrame, const std::string& endEffectorFrame, const bool autoSelectJoints = true);
     
-    void setGains(const iDynTree::Vector3& gains);
+    void setWeights(const iDynTree::Vector3& weights);
     
     void setDesiredPosition(const iDynTree::Vector3& desiredPosition);
     
@@ -50,5 +49,7 @@ public:
     bool getErrors(iDynTree::Vector3& positionError, iDynTree::Rotation& rotationError, double* angleError);
     
     void getFrames(std::string& parentFrame, std::string& endEffectorFrame);
+    
+    bool getConsideredJoints(std::vector< std::string >& consideredJoints);
 };
 #endif /* end of include guard: INVERSEKINEMATICS_H */

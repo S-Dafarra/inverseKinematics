@@ -159,9 +159,7 @@ bool InverseKinematics::setModelfromURDF(const std::string& URDFfilename, const 
         success = getFrameIndeces(parentFrame, endEffectorFrame, model, parent, endEffector);
         if(!success)
             return false; 
-        
-        _parentFrame = parentFrame;
-        _targetFrame = endEffectorFrame;
+
     }
     
     else if (!consideredJoints.empty()){
@@ -175,9 +173,7 @@ bool InverseKinematics::setModelfromURDF(const std::string& URDFfilename, const 
         success = getFrameIndeces(parentFrame, endEffectorFrame, model, parent, endEffector);
         if(!success)
             return false;
-        
-        _parentFrame = parentFrame;
-        _targetFrame = endEffectorFrame;
+
     }
     
     else {
@@ -192,10 +188,10 @@ bool InverseKinematics::setModelfromURDF(const std::string& URDFfilename, const 
         if(!success)
             return false;
         
-        _parentFrame = parentFrame;
-        _targetFrame = endEffectorFrame;
     }
-
+    
+    _parentFrame = parentFrame;
+    _targetFrame = endEffectorFrame;
     return solverPointer->loadFromModel(model, parent, endEffector);
 }
 
@@ -236,9 +232,9 @@ bool InverseKinematics::setModel(const iDynTree::Model& modelInput, const std::s
     return solverPointer->loadFromModel(model, parentFrameIndex, endEffectorFrameIndex);
 }
 
-void InverseKinematics::setGains(const iDynTree::Vector3& gains)
+void InverseKinematics::setWeights(const iDynTree::Vector3& weights)
 {
-    solverPointer->gains = gains;
+    solverPointer->gains = weights;
     updated = false;
 }
 
@@ -294,6 +290,19 @@ void InverseKinematics::getFrames(std::string& parentFrame, std::string& endEffe
     endEffectorFrame = _targetFrame;
 }
 
+bool InverseKinematics::getConsideredJoints(std::vector< std::string >& consideredJoints)
+{
+    iDynTree::Model _model;
+    if(!solverPointer->getModel(_model))
+        return false;
+    
+    consideredJoints.resize(_model.getNrOfJoints());
+    for(int i=0; i<_model.getNrOfJoints(); ++i){
+        consideredJoints[i] = _model.getJointName(i);
+    }
+    
+    return true;
+}
 
 
 signed int InverseKinematics::runIK(iDynTree::VectorDynSize& jointsOut)

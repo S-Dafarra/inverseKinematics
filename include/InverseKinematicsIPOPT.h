@@ -37,8 +37,6 @@ class InverseKinematicsIPOPT : public Ipopt::TNLP {
     iDynTree::Vector4 quaternionResult;
     
     
-    void removeJoints(const iDynTree::Model modelInput);
-    
     void twistToQuaternionTwist(iDynTree::Vector4 &quaternion, iDynTree::MatrixFixSize<7,6>& mapOut);
 
     void relativeJacobian(const iDynTree::VectorDynSize &configuration, iDynTree::MatrixDynSize& jacobianOut);
@@ -55,7 +53,9 @@ public:
     
     virtual ~InverseKinematicsIPOPT();
 
-    bool loadFromModel(const iDynTree::Model modelInput, iDynTree::FrameIndex parentFrameIn, iDynTree::FrameIndex targetFrame);
+    bool loadFromModel(const iDynTree::Model& modelInput, iDynTree::FrameIndex& parentFrameIn, iDynTree::FrameIndex& targetFrame);
+    
+    bool getModel(iDynTree::Model& modelOuput);
 
     bool update(const iDynTree::Vector3& gainsIn, const iDynTree::Vector3 &desiredPositionIn, const iDynTree::Vector4 &desiredQuaternionIn, const iDynTree::VectorDynSize &desiredJointsIn);
 

@@ -111,12 +111,12 @@ int main(int argc, char **argv) {
     
     std::cerr << "Model Set" <<std::endl;
     
-    iDynTree::Vector3 gains;
-    gains(0) = 100;
-    gains(1) = 10;
-    gains(2) = 0.01;
+    iDynTree::Vector3 weights;
+    weights(0) = 100;
+    weights(1) = 10;
+    weights(2) = 0.01;
     
-    solver.setGains(gains);
+    solver.setWeights(weights);
     
     std::cerr << "Gains set" << std::endl;
     

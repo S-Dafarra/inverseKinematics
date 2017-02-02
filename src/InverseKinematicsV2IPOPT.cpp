@@ -25,7 +25,7 @@ InverseKinematicsV2IPOPT::InverseKinematicsV2IPOPT()
 InverseKinematicsV2IPOPT::~InverseKinematicsV2IPOPT()
 {}
 
-bool InverseKinematicsV2IPOPT::loadFromModel(const Model modelInput, FrameIndex parentFrameIn, FrameIndex targetFrame)
+bool InverseKinematicsV2IPOPT::loadFromModel(const Model& modelInput, FrameIndex& parentFrameIn, FrameIndex& targetFrame)
 {
     parentFrame = parentFrameIn;
     endEffectorFrame = targetFrame;
@@ -73,6 +73,16 @@ bool InverseKinematicsV2IPOPT::loadFromModel(const Model modelInput, FrameIndex 
     return true;
 }
 
+bool InverseKinematicsV2IPOPT::getModel(Model& modelOuput)
+{
+    if(!modelLoaded)
+        return false;
+
+    modelOuput = model;
+    return true;
+}
+
+
 bool InverseKinematicsV2IPOPT::update(const Vector3& gainsIn, const Vector3& desiredPositionIn, const Vector4& desiredQuaternionIn, const VectorDynSize& desiredJointsIn)
 {
     if(!modelLoaded){
@@ -87,6 +97,13 @@ bool InverseKinematicsV2IPOPT::update(const Vector3& gainsIn, const Vector3& des
 
     desiredPosition = desiredPositionIn;
     desiredJoints = desiredJointsIn;
+    
+    if( (toEigen(desiredQuaternionIn).norm() < 0.95) || (toEigen(desiredQuaternionIn).norm() > 1.05) ){
+        std::cerr << "[ERROR] Not unitary quaternion" << std::endl;
+        return false;
+    }
+        
+    
     desiredQuaternion = desiredQuaternionIn;
     gains = gainsIn;
     

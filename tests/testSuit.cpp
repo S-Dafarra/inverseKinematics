@@ -133,7 +133,7 @@ int main(int argc, char **argv) {
     }
     
     //Deleting stuff
-    std::cerr<< "Deleting human_state variable" << std::endl;
+    std::cerr<< "Deleting human_state variables" << std::endl;
     Mat_VarFree(humanStateVar);
     
     std::cerr<<"Closing human_state.mat file."<<std::endl;
@@ -152,22 +152,169 @@ int main(int argc, char **argv) {
     //START Test
     
     
-    std::vector< InverseKinematics > solvers(22,InverseKinematics("ma57"));
-    std::string parentFrame, targetFrame;
-    iDynTree::Traversal traversal;
+    std::vector< InverseKinematics* > solvers(linksName.size()-1);
     
-    
-    
-    std::vector < std::string > selectedJointsList = selectedJointsVector;
-    std::vector< std::string >::const_iterator pickJ = selectedJointsList.begin();
-    
-    
-    
-    std::cerr << "Compute the traversal from " << model.getFrameName(0) << std::endl;
-    model.computeFullTreeTraversal(traversal, 0);
-    for(int i=0; i<22; ++i){
-        parentFrame = linksName[i];
-        targetFrame = linksName[i+1];
-        solvers[i].setModel(model, parentFrame, targetFrame);
+    for(int solverIterator = 0; solverIterator < solvers.size(); ++solverIterator){
+        solvers[solverIterator] = new InverseKinematics("ma57");
     }
+    
+    
+    
+    std::string parentFrame, targetFrame;
+    int solverIterator = 0;
+    std::vector < iDynTree::JointIndex > selectedJointsList(model.getNrOfJoints());
+    
+    for (int i = 0; i < model.getNrOfJoints(); ++i){ //let's create a checklist will all the joint indeces
+        selectedJointsList[i] = i;
+    }
+    
+    std::vector< iDynTree::JointIndex >::iterator pickJ = selectedJointsList.begin();
+    std::vector< iDynTree::JointIndex >::iterator findJ = selectedJointsList.begin();
+    iDynTree::LinkIndex tempFirst, tempSecond, childLink;
+
+
+    do{
+        pickJ = selectedJointsList.begin();
+        tempFirst = model.getJoint( *pickJ )->getFirstAttachedLink();
+        tempSecond = model.getJoint( *pickJ )->getSecondAttachedLink();
+        while((std::find(linksName.begin(),linksName.end(),model.getFrameName(tempFirst)) ==  linksName.end()) &&       //first find a joint which is connected to a link contained in linksName (thus does not connect two fake links)
+                (std::find(linksName.begin(),linksName.end(),model.getFrameName(tempSecond)) ==  linksName.end()) ){
+            
+            pickJ++;
+            iDynTree::assertTrue(pickJ < selectedJointsList.end());
+            
+            tempFirst = model.getJoint(*pickJ)->getFirstAttachedLink();
+            tempSecond = model.getJoint(*pickJ)->getSecondAttachedLink();
+            
+        }
+        
+        if(std::find(linksName.begin(),linksName.end(),model.getFrameName(tempFirst)) !=  linksName.end()){ //first link is a good one
+            parentFrame = model.getFrameName(tempFirst);
+            childLink = tempSecond;
+            selectedJointsList.erase(pickJ); //remove joints already considered
+        }
+        else{ //second link is the good one
+            parentFrame = model.getFrameName(tempSecond);
+            childLink = tempFirst;
+            selectedJointsList.erase(pickJ); //remove joints already considered
+        }
+        
+        //now we have to test whether the child is a fake link or not
+        while(std::find(linksName.begin(),linksName.end(),model.getFrameName(childLink)) ==  linksName.end()){
+            findJ = selectedJointsList.begin();
+            while( (model.getJoint( *findJ )->getFirstAttachedLink() != childLink) &&    //first find the other joint connected to the fake link
+                (model.getJoint( *findJ )->getSecondAttachedLink() != childLink) ){
+            
+            ++findJ;
+            iDynTree::assertTrue(findJ < selectedJointsList.end());
+
+            }
+            
+            if(model.getJoint( *findJ )->getFirstAttachedLink() == childLink){ //first link is a good one
+                childLink = model.getJoint( *findJ )->getSecondAttachedLink();
+                selectedJointsList.erase(findJ);
+            }
+            else{ //second link is the good one
+                childLink = model.getJoint( *findJ )->getFirstAttachedLink();
+                selectedJointsList.erase(findJ);
+            }
+        }
+        
+        targetFrame = model.getFrameName(childLink);
+        
+        iDynTree::assertTrue(solverIterator < solvers.size());
+        std::cerr << "Solver #" << solverIterator + 1 << std::endl;
+        ok = solvers[solverIterator]->setModel(model, parentFrame, targetFrame);
+        iDynTree::assertTrue(ok);
+        solverIterator++;
+        
+    }while(selectedJointsList.size()!=0);
+
+    iDynTree::assertTrue(solverIterator == solvers.size());
+    
+    iDynTree::Vector3 weights;
+    weights(0) = 100;
+    weights(1) = 10;
+    weights(2) = 0.01;
+    
+    std::vector< std::string > tempConsideredJoints;
+    iDynTree::VectorDynSize tempDesiredJoints;
+    
+    for(solverIterator = 0; solverIterator < solvers.size(); ++solverIterator){ //set gains and desired joints positions
+        solvers[solverIterator]->setWeights(weights);
+        
+        solvers[solverIterator]->getConsideredJoints(tempConsideredJoints);
+        tempDesiredJoints.resize(tempConsideredJoints.size());
+        tempDesiredJoints.zero();
+        solvers[solverIterator]->setDesiredJointPositions(tempDesiredJoints);
+    }
+    
+    int selectedInstant;
+    iDynTree::Transform w_H_parent;
+    iDynTree::Transform w_H_target;
+    std::string tempParentFrame;
+    std::string tempTargetFrame;
+    iDynTree::Position tempPosition;
+    iDynTree::Vector4 tempQuaternion;
+    iDynTree::Rotation tempRotation;
+    iDynTree::Transform tempTransform;
+    int namePosition;
+    iDynTree::VectorDynSize jointsOut;
+    clock_t now;
+    double elapsed_time;
+    for(int nInstants = 0; nInstants < 3; ++nInstants){
+        srand ( clock() );
+        selectedInstant = rand() % humanStateQi.cols();  //random time instant
+        std::cerr << "Selected time instant: " << selectedInstant << std::endl;
+        
+        for(solverIterator = 0; solverIterator < solvers.size(); ++solverIterator){
+            solvers[solverIterator]->getFrames(tempParentFrame, tempTargetFrame);
+           /* std::cerr << "PreSolver #" << solverIterator << " parent:" << tempParentFrame << " target: "<< tempTargetFrame << std::endl;
+            solvers[solverIterator].getConsideredJoints(tempConsideredJoints);
+            std::cerr << "Considered joints are:"<< std::endl;
+            for (std::vector< std::string >::const_iterator i = tempConsideredJoints.begin(); i != tempConsideredJoints.end(); ++i){
+                std::cerr <<"-"<< *i << std::endl;
+            }*/
+            
+            namePosition = std::distance(linksName.begin(), std::find(linksName.begin(),linksName.end(),tempParentFrame)); //search for its position in linksName
+            
+            iDynTree::toEigen(tempPosition) = iDynTree::toEigen(linksPositions[namePosition]).col(selectedInstant);
+            iDynTree::toEigen(tempQuaternion) = iDynTree::toEigen(linksQuaternions[namePosition]).col(selectedInstant);
+            tempRotation =  iDynTree::Rotation::RotationFromQuaternion(tempQuaternion);
+            w_H_parent.setPosition(tempPosition);
+            w_H_parent.setRotation(tempRotation);
+            
+            namePosition = std::distance(linksName.begin(), std::find(linksName.begin(),linksName.end(),tempTargetFrame)); 
+            
+            iDynTree::toEigen(tempPosition) = iDynTree::toEigen(linksPositions[namePosition]).col(selectedInstant);
+            iDynTree::toEigen(tempQuaternion) = iDynTree::toEigen(linksQuaternions[namePosition]).col(selectedInstant);
+            tempRotation =  iDynTree::Rotation::RotationFromQuaternion(tempQuaternion);
+            
+            w_H_target.setPosition(tempPosition);
+            w_H_target.setRotation(tempRotation);
+            tempTransform = w_H_parent.inverse()*w_H_target;
+            solvers[solverIterator]->setDesiredTransformation(tempTransform);
+            
+            std::cerr << "Solver #" << solverIterator+1 << std::endl;
+            now = clock();
+            solvers[solverIterator]->runIK(jointsOut);
+            elapsed_time = clock() - now;
+            elapsed_time = elapsed_time/CLOCKS_PER_SEC;
+            
+            solvers[solverIterator]->getConsideredJoints(tempConsideredJoints);
+            
+            for(int jIterator = 0; jIterator < tempConsideredJoints.size(); ++jIterator){
+                namePosition = std::distance(selectedJointsVector.begin(), std::find(selectedJointsVector.begin(),selectedJointsVector.end(), tempConsideredJoints[jIterator])); 
+                std::cerr << tempConsideredJoints[jIterator] <<": (IK) " << jointsOut(jIterator) << " vs " << humanStateQi(namePosition,selectedInstant) << " (OpenSim)" << std::endl;
+            }
+            std::cerr << "Elapsed time: "<< elapsed_time<<std::endl;
+            
+        }
+        
+    }
+    
+    for(int solverIterator = 0; solverIterator < solvers.size(); ++solverIterator){
+        delete(solvers[solverIterator]);
+    }
+    
 }

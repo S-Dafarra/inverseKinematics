@@ -29,7 +29,7 @@ class InverseKinematicsV2IPOPT : public Ipopt::TNLP {
     iDynTree::FrameFreeFloatingJacobian e_J_we, p_J_wp;
     iDynTree::MatrixDynSize jacobian;
     iDynTree::VectorDynSize jointsTemp;
-    iDynTree::Vector3 positionResult;
+    iDynTree::Position positionResult;
     iDynTree::Vector4 quaternionResult;
     iDynTree::MatrixFixSize<7,7> kF;
     double kJoints;
@@ -42,7 +42,7 @@ class InverseKinematicsV2IPOPT : public Ipopt::TNLP {
 public:
     iDynTree::VectorDynSize jointResult;
     iDynTree::Vector3 gains;
-    iDynTree::Vector3 desiredPosition;
+    iDynTree::Position desiredPosition;
     iDynTree::Vector4 desiredQuaternion; 
     iDynTree::VectorDynSize desiredJoints;
     signed int exitCode;
@@ -55,11 +55,11 @@ public:
     
     bool getModel(iDynTree::Model& modelOuput);
 
-    bool update(const iDynTree::Vector3& gainsIn, const iDynTree::Vector3 &desiredPositionIn, const iDynTree::Vector4 &desiredQuaternionIn, const iDynTree::VectorDynSize &desiredJointsIn);
+    bool update(const iDynTree::Vector3& gainsIn, const iDynTree::Position &desiredPositionIn, const iDynTree::Vector4 &desiredQuaternionIn, const iDynTree::VectorDynSize &desiredJointsIn);
 
     bool update();
 
-    void computeErrors(iDynTree::Vector3& positionError, iDynTree::Rotation& rotationError, double* angleError);
+    void computeErrors(iDynTree::Position& positionError, iDynTree::Rotation& rotationError, double* angleError);
     
     // IPOPT methods redefinition
 

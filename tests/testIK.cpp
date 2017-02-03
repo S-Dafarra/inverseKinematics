@@ -133,7 +133,7 @@ int main(int argc, char **argv) {
     iDynTree::VectorDynSize jointsTest(model.getNrOfDOFs());
     signed int exitCode;
     iDynTree::VectorDynSize jointsIK;
-    iDynTree::Vector3 positionErrorComputed, positionErrorIK;
+    iDynTree::Position positionErrorComputed, positionErrorIK;
     iDynTree::Rotation rotationErrorIK, rotationErrorComputed;
     double angleError;
     clock_t now;

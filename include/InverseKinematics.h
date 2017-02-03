@@ -34,7 +34,7 @@ public:
     
     void setWeights(const iDynTree::Vector3& weights);
     
-    void setDesiredPosition(const iDynTree::Vector3& desiredPosition);
+    void setDesiredPosition(const iDynTree::Position& desiredPosition);
     
     void setDesiredQuaternion(const iDynTree::Vector4& desiredQuaternion); 
     
@@ -42,11 +42,11 @@ public:
     
     void setDesiredJointPositions(const iDynTree::VectorDynSize& desiredJoints);
     
-    bool update(const iDynTree::Vector3& gains, const iDynTree::Vector3 &desiredPosition, const iDynTree::Vector4 &desiredQuaternion, const iDynTree::VectorDynSize &desiredJoints);
+    bool update(const iDynTree::Vector3& gains, const iDynTree::Position &desiredPosition, const iDynTree::Vector4 &desiredQuaternion, const iDynTree::VectorDynSize &desiredJoints);
     
     signed int runIK(iDynTree::VectorDynSize& jointsOut);
 
-    bool getErrors(iDynTree::Vector3& positionError, iDynTree::Rotation& rotationError, double* angleError);
+    bool getErrors(iDynTree::Position& positionError, iDynTree::Rotation& rotationError, double* angleError);
     
     void getFrames(std::string& parentFrame, std::string& endEffectorFrame);
     

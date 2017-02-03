@@ -6,6 +6,19 @@
 #include <matio.h>
 #include <ctime>
 
+struct IKErrorLog{
+    std::vector< int > timeInstants;
+    std::vector< double > jointsIK;
+    std::vector< double > ik_minus_opensim;
+};
+
+struct IKSolverLog{
+    std::vector< int > timeInstants;
+    std::vector< double > exitCode;
+    std::vector< double > angleError;
+    std::vector<double> elapsedTime;
+};
+
 int main(int argc, char **argv) {
     
     iDynTree::ModelLoader modelLoader;
@@ -131,7 +144,6 @@ int main(int argc, char **argv) {
         linksQuaternions[i].resize(temp->dims[0], temp->dims[1]);
         toEigen(linksQuaternions[i]) = tempMapOrientation;
     }
-    
     //Deleting stuff
     std::cerr<< "Deleting human_state variables" << std::endl;
     Mat_VarFree(humanStateVar);
@@ -201,23 +213,20 @@ int main(int argc, char **argv) {
         
         //now we have to test whether the child is a fake link or not
         while(std::find(linksName.begin(),linksName.end(),model.getFrameName(childLink)) ==  linksName.end()){
-            findJ = selectedJointsList.begin();
-            while( (model.getJoint( *findJ )->getFirstAttachedLink() != childLink) &&    //first find the other joint connected to the fake link
-                (model.getJoint( *findJ )->getSecondAttachedLink() != childLink) ){
             
-            ++findJ;
-            iDynTree::assertTrue(findJ < selectedJointsList.end());
+            iDynTree::assertTrue(model.getNrOfNeighbors(childLink) == 2); //fake links should be in the middle between two joints
+            findJ = std::find(selectedJointsList.begin(),selectedJointsList.end(), model.getNeighbor(childLink,0).neighborJoint);
+            if(findJ !=  selectedJointsList.end()){
+                childLink = model.getNeighbor(childLink,0).neighborLink;
+                selectedJointsList.erase(findJ);
+            }
+            else{
+                findJ = std::find(selectedJointsList.begin(),selectedJointsList.end(), model.getNeighbor(childLink,1).neighborJoint);
+                iDynTree::assertTrue(findJ != selectedJointsList.end());
+                childLink = model.getNeighbor(childLink,1).neighborLink;
+                selectedJointsList.erase(findJ);
+            }
 
-            }
-            
-            if(model.getJoint( *findJ )->getFirstAttachedLink() == childLink){ //first link is a good one
-                childLink = model.getJoint( *findJ )->getSecondAttachedLink();
-                selectedJointsList.erase(findJ);
-            }
-            else{ //second link is the good one
-                childLink = model.getJoint( *findJ )->getFirstAttachedLink();
-                selectedJointsList.erase(findJ);
-            }
         }
         
         targetFrame = model.getFrameName(childLink);
@@ -233,8 +242,8 @@ int main(int argc, char **argv) {
     iDynTree::assertTrue(solverIterator == solvers.size());
     
     iDynTree::Vector3 weights;
-    weights(0) = 100;
-    weights(1) = 10;
+    weights(0) = 10;
+    weights(1) = 100;
     weights(2) = 0.01;
     
     std::vector< std::string > tempConsideredJoints;
@@ -260,16 +269,84 @@ int main(int argc, char **argv) {
     iDynTree::Transform tempTransform;
     int namePosition;
     iDynTree::VectorDynSize jointsOut;
+    iDynTree::Position positionError;
+    iDynTree::Rotation rotationError;
+    double angleError;
     clock_t now;
     double elapsed_time;
-    for(int nInstants = 0; nInstants < 3; ++nInstants){
-        srand ( clock() );
-        selectedInstant = rand() % humanStateQi.cols();  //random time instant
-        std::cerr << "Selected time instant: " << selectedInstant << std::endl;
+    int exitCode;
+
+    
+      /////////////////////////
+     ///// EXAMPLE RUN ///////
+    /////////////////////////
+    srand ( clock() );
+    selectedInstant = rand() % humanStateQi.cols();  //random time instant
+    std::cerr << "Example Test. Selected time instant: " << selectedInstant << std::endl;
+    
+    for(solverIterator = 0; solverIterator < solvers.size(); ++solverIterator){
+        solvers[solverIterator]->getFrames(tempParentFrame, tempTargetFrame);
+        /* std::cerr << "PreSolver #" << solverIterator << " parent:" << tempParentFrame << " target: "<< tempTargetFrame << std::endl;
+        solvers[solverIterator].getConsideredJoints(tempConsideredJoints);
+        std::cerr << "Considered joints are:"<< std::endl;
+        for (std::vector< std::string >::const_iterator i = tempConsideredJoints.begin(); i != tempConsideredJoints.end(); ++i){
+            std::cerr <<"-"<< *i << std::endl;
+        }*/
         
+        namePosition = std::distance(linksName.begin(), std::find(linksName.begin(),linksName.end(),tempParentFrame)); //search for its position in linksName
+        
+        iDynTree::toEigen(tempPosition) = iDynTree::toEigen(linksPositions[namePosition]).col(selectedInstant);
+        iDynTree::toEigen(tempQuaternion) = iDynTree::toEigen(linksQuaternions[namePosition]).col(selectedInstant);
+        tempRotation =  iDynTree::Rotation::RotationFromQuaternion(tempQuaternion);
+        w_H_parent.setPosition(tempPosition);
+        w_H_parent.setRotation(tempRotation);
+        
+        namePosition = std::distance(linksName.begin(), std::find(linksName.begin(),linksName.end(),tempTargetFrame)); 
+        
+        iDynTree::toEigen(tempPosition) = iDynTree::toEigen(linksPositions[namePosition]).col(selectedInstant);
+        iDynTree::toEigen(tempQuaternion) = iDynTree::toEigen(linksQuaternions[namePosition]).col(selectedInstant);
+        tempRotation =  iDynTree::Rotation::RotationFromQuaternion(tempQuaternion);
+        
+        w_H_target.setPosition(tempPosition);
+        w_H_target.setRotation(tempRotation);
+        tempTransform = w_H_parent.inverse()*w_H_target;
+        solvers[solverIterator]->setDesiredTransformation(tempTransform);
+        
+        std::cerr << "Solver #" << solverIterator+1 << std::endl;
+        now = clock();
+        exitCode = solvers[solverIterator]->runIK(jointsOut);
+        iDynTree::assertTrue(exitCode >= 0);
+        solvers[solverIterator]->getErrors(positionError, rotationError, &angleError);
+        elapsed_time = clock() - now;
+        elapsed_time = elapsed_time/CLOCKS_PER_SEC;
+        
+        solvers[solverIterator]->getConsideredJoints(tempConsideredJoints);
+        
+        for(int jIterator = 0; jIterator < tempConsideredJoints.size(); ++jIterator){
+            namePosition = std::distance(selectedJointsVector.begin(), std::find(selectedJointsVector.begin(),selectedJointsVector.end(), tempConsideredJoints[jIterator])); 
+            std::cerr << tempConsideredJoints[jIterator] <<": (IK) " << jointsOut(jIterator)*180/M_PI << " vs " << humanStateQi(namePosition,selectedInstant)*180/M_PI << " (OpenSim)" << std::endl;
+        }
+        std::cerr <<"Exit code: " << exitCode << std::endl;
+        std::cerr <<"Angle Error: " << angleError*180/M_PI << std::endl;
+        std::cerr << "Elapsed time: "<< elapsed_time << std::endl << std::endl;
+        
+    }
+        
+      ////////////////////////////////////////////
+     ///////// END OF EXAMPLE RUN ///////////////
+    ////////////////////////////////////////////
+    
+    
+    double tempDifference;
+    std::string jointName;
+    std::map < std::string, IKErrorLog> loggerOpensim;
+    std::map < int, IKSolverLog> loggerSolver;
+    
+    for(selectedInstant = 0; selectedInstant < humanStateQi.cols(); ++selectedInstant){
+        std::cerr << humanStateQi.cols() << "/" << selectedInstant; 
         for(solverIterator = 0; solverIterator < solvers.size(); ++solverIterator){
             solvers[solverIterator]->getFrames(tempParentFrame, tempTargetFrame);
-           /* std::cerr << "PreSolver #" << solverIterator << " parent:" << tempParentFrame << " target: "<< tempTargetFrame << std::endl;
+            /* std::cerr << "PreSolver #" << solverIterator << " parent:" << tempParentFrame << " target: "<< tempTargetFrame << std::endl;
             solvers[solverIterator].getConsideredJoints(tempConsideredJoints);
             std::cerr << "Considered joints are:"<< std::endl;
             for (std::vector< std::string >::const_iterator i = tempConsideredJoints.begin(); i != tempConsideredJoints.end(); ++i){
@@ -295,23 +372,57 @@ int main(int argc, char **argv) {
             tempTransform = w_H_parent.inverse()*w_H_target;
             solvers[solverIterator]->setDesiredTransformation(tempTransform);
             
-            std::cerr << "Solver #" << solverIterator+1 << std::endl;
+            //std::cerr << "Solver #" << solverIterator+1 << std::endl;
             now = clock();
-            solvers[solverIterator]->runIK(jointsOut);
+            exitCode = solvers[solverIterator]->runIK(jointsOut);
+            solvers[solverIterator]->getErrors(positionError, rotationError, &angleError);
             elapsed_time = clock() - now;
             elapsed_time = elapsed_time/CLOCKS_PER_SEC;
+            angleError = angleError*180/M_PI;
+            
+            if(angleError > 2){
+                loggerSolver[solverIterator].timeInstants.push_back(selectedInstant);
+                loggerSolver[solverIterator].elapsedTime.push_back(elapsed_time);
+                loggerSolver[solverIterator].exitCode.push_back(exitCode);
+                loggerSolver[solverIterator].angleError.push_back(angleError);
+            }
             
             solvers[solverIterator]->getConsideredJoints(tempConsideredJoints);
             
             for(int jIterator = 0; jIterator < tempConsideredJoints.size(); ++jIterator){
                 namePosition = std::distance(selectedJointsVector.begin(), std::find(selectedJointsVector.begin(),selectedJointsVector.end(), tempConsideredJoints[jIterator])); 
-                std::cerr << tempConsideredJoints[jIterator] <<": (IK) " << jointsOut(jIterator) << " vs " << humanStateQi(namePosition,selectedInstant) << " (OpenSim)" << std::endl;
+                tempDifference = jointsOut(jIterator)*180/M_PI - humanStateQi(namePosition,selectedInstant)*180/M_PI;
+                
+                if (tempDifference > 2){
+                    jointName = tempConsideredJoints[jIterator];
+                    loggerOpensim[jointName].timeInstants.push_back(selectedInstant);
+                    loggerOpensim[jointName].jointsIK.push_back(jointsOut(jIterator)*180/M_PI);
+                    loggerOpensim[jointName].ik_minus_opensim.push_back(tempDifference);
+                }
+                //std::cerr << tempConsideredJoints[jIterator] <<": (IK) " << jointsOut(jIterator)*180/M_PI << " vs " << humanStateQi(namePosition,selectedInstant)*180/M_PI << " (OpenSim)" << std::endl;
             }
-            std::cerr << "Elapsed time: "<< elapsed_time<<std::endl;
+            //std::cerr <<"Exit code: " << exitCode << std::endl;
+            //std::cerr <<"Angle Error: " << angleError*180/M_PI << std::endl;
+            //std::cerr << "Elapsed time: "<< elapsed_time << std::endl << std::endl;
             
         }
-        
+        std::cerr << "\r";
     }
+    
+    //////// PRINTING LOGGERS /////
+    int failed =1;
+    
+    for(int i=0; i<selectedJointsVector.size(); ++i){
+        if(loggerOpensim.count(selectedJointsVector[i])){
+            std::cerr << failed << "# ";
+            std::cerr  << selectedJointsVector[i] << " was different of at least 2[deg] for "<< loggerOpensim[selectedJointsVector[i]].timeInstants.size();
+            std::cerr <<" times with maximum [deg] " << *std::max_element(loggerOpensim[selectedJointsVector[i]].ik_minus_opensim.begin(), loggerOpensim[selectedJointsVector[i]].ik_minus_opensim.end()) << std::endl;
+            failed ++;
+        }
+    }
+    
+    
+    
     
     for(int solverIterator = 0; solverIterator < solvers.size(); ++solverIterator){
         delete(solvers[solverIterator]);

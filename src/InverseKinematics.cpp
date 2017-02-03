@@ -121,7 +121,7 @@ bool InverseKinematics::autoSelectJointsFromTraversal(const iDynTree::Model& mod
     
     std::cerr << "[IK] Considered joints are:"<< std::endl;
     for (std::vector< std::string >::const_iterator i = consideredJointsAuto.begin(); i != consideredJointsAuto.end(); ++i){
-        std::cerr <<"-"<< *i << std::endl;
+        std::cerr <<"->"<< *i << std::endl;
     }
     std::cerr << std::endl;
     
@@ -238,7 +238,7 @@ void InverseKinematics::setWeights(const iDynTree::Vector3& weights)
     updated = false;
 }
 
-void InverseKinematics::setDesiredPosition(const iDynTree::Vector3& desiredPosition)
+void InverseKinematics::setDesiredPosition(const iDynTree::Position& desiredPosition)
 {
     solverPointer->desiredPosition = desiredPosition;
     updated = false;
@@ -262,7 +262,7 @@ void InverseKinematics::setDesiredJointPositions(const iDynTree::VectorDynSize& 
     updated = false;
 }
 
-bool InverseKinematics::update(const iDynTree::Vector3& gains, const iDynTree::Vector3& desiredPosition, const iDynTree::Vector4& desiredQuaternion, const iDynTree::VectorDynSize& desiredJoints)
+bool InverseKinematics::update(const iDynTree::Vector3& gains, const iDynTree::Position& desiredPosition, const iDynTree::Vector4& desiredQuaternion, const iDynTree::VectorDynSize& desiredJoints)
 {
     updated = solverPointer->update(gains, desiredPosition, desiredQuaternion, desiredJoints);
     return updated;
@@ -274,7 +274,7 @@ bool InverseKinematics::update()
     return updated;
 }
 
-bool InverseKinematics::getErrors(iDynTree::Vector3& positionError, iDynTree::Rotation& rotationError, double* angleError)
+bool InverseKinematics::getErrors(iDynTree::Position& positionError, iDynTree::Rotation& rotationError, double* angleError)
 {
     if(!alreadyOptimized)
         return false;
@@ -336,7 +336,6 @@ signed int InverseKinematics::runIK(iDynTree::VectorDynSize& jointsOut)
         return solverPointer->exitCode;
     }
     else {
-            std::cerr << "Passing to loader" << std::endl;
     
             loader->OptimizeTNLP(solverPointer);
             alreadyOptimized = true;

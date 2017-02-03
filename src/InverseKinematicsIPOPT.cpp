@@ -97,7 +97,7 @@ bool InverseKinematicsIPOPT::getModel(Model& modelOuput)
     return true;
 }
 
-bool InverseKinematicsIPOPT::update(const Vector3& gainsIn, const Vector3& desiredPositionIn, const Vector4& desiredQuaternionIn, const VectorDynSize& desiredJointsIn)
+bool InverseKinematicsIPOPT::update(const Vector3& gainsIn, const Position& desiredPositionIn, const Vector4& desiredQuaternionIn, const VectorDynSize& desiredJointsIn)
 {
     if(!modelLoaded){
        std::cerr<<"[ERROR] First you have to load a model"<< std::endl;
@@ -411,7 +411,7 @@ bool InverseKinematicsIPOPT::eval_h(Ipopt::Index n, const Number* x, bool new_x,
     return false;
 }
 
-void InverseKinematicsIPOPT::computeErrors(Vector3& positionError, Rotation& rotationError, double* angleError)
+void InverseKinematicsIPOPT::computeErrors(Position& positionError, Rotation& rotationError, double* angleError)
 {
     Rotation endEffectorOrientation, actualEndEffectorRotation;
 

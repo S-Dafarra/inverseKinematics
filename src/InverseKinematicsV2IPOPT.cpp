@@ -83,7 +83,7 @@ bool InverseKinematicsV2IPOPT::getModel(Model& modelOuput)
 }
 
 
-bool InverseKinematicsV2IPOPT::update(const Vector3& gainsIn, const Vector3& desiredPositionIn, const Vector4& desiredQuaternionIn, const VectorDynSize& desiredJointsIn)
+bool InverseKinematicsV2IPOPT::update(const Vector3& gainsIn, const Position& desiredPositionIn, const Vector4& desiredQuaternionIn, const VectorDynSize& desiredJointsIn)
 {
     if(!modelLoaded){
        std::cerr<<"[ERROR] First you have to load a model"<< std::endl;
@@ -297,6 +297,8 @@ void InverseKinematicsV2IPOPT::finalize_solution(SolverReturn status, Ipopt::Ind
         positionResult = p_H_e.getPosition();
         
         quaternionResult = p_H_e.getRotation().asQuaternion();
+        
+        //std::cerr << "[IK Result] Cost value: "<< obj_value << std::endl;
 
         if(status == Ipopt::SUCCESS){
             exitCode = 0;
@@ -345,7 +347,7 @@ bool InverseKinematicsV2IPOPT::eval_h(Ipopt::Index n, const Number* x, bool new_
     return false;
 }
 
-void InverseKinematicsV2IPOPT::computeErrors(Vector3& positionError, Rotation& rotationError, double* angleError)
+void InverseKinematicsV2IPOPT::computeErrors(Position& positionError, Rotation& rotationError, double* angleError)
 {
     Rotation endEffectorOrientation, actualEndEffectorRotation;
 

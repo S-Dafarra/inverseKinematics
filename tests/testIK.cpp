@@ -113,7 +113,7 @@ int main(int argc, char **argv) {
     
     iDynTree::Vector3 weights;
     weights(0) = 1;
-    weights(1) = 10000;
+    weights(1) = 100;
     weights(2) = 0.0;
     
     solver.setWeights(weights);

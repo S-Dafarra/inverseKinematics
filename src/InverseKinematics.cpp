@@ -324,7 +324,10 @@ signed int InverseKinematics::runIK(iDynTree::VectorDynSize& jointsOut)
         Ipopt::ApplicationReturnStatus status;
         //loader->Options()->SetStringValue("derivative_test", "first-order");
         //loader->Options()->SetStringValue("derivative_test_print_all", "yes");
-        loader->Options()->SetIntegerValue("print_level", 2);
+        loader->Options()->SetIntegerValue("print_level", 2); //default 5
+        loader->Options()->SetNumericValue("tol", 1e-6); //default 1e-8
+        loader->Options()->SetNumericValue("acceptable_tol", 1e-3); //default 1e-6
+        loader->Options()->SetIntegerValue("acceptable_iter", 10); //default 15
         
         status = loader->Initialize();
         

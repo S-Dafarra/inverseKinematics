@@ -115,7 +115,7 @@ bool InverseKinematicsV2IPOPT::update(const Vector3& gainsIn, const Position& de
     toEigen(pDesired).segment<3>(0) = toEigen(desiredPosition);
     toEigen(pDesired).segment<4>(3) = toEigen(desiredQuaternion);
     
-    std::cerr << "pDesired = "<< pDesired.toString() << std::endl;
+    //std::cerr << "pDesired = "<< pDesired.toString() << std::endl;
     
     gainsLoaded = true;
     return true;
@@ -378,7 +378,7 @@ void InverseKinematicsV2IPOPT::finalize_solution(SolverReturn status, Ipopt::Ind
 
         }
     }
-
+    guess.resize(0);
 }
 
 bool InverseKinematicsV2IPOPT::eval_h(Ipopt::Index n, const Number* x, bool new_x, Number obj_factor, Ipopt::Index m, const Number* lambda, bool new_lambda, Ipopt::Index nele_hess, Ipopt::Index* iRow, Ipopt::Index* jCol, Number* values)

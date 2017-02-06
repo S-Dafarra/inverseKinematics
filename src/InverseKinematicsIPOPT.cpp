@@ -139,7 +139,7 @@ bool InverseKinematicsIPOPT::randomInitialization(const double feed, VectorDynSi
         return false;
     
     srand (feed);
-    guess.resize(totalDOF);
+    guess.resize(totalDOF-7);
     for(int i=0; i < guess.size(); ++i){
         guess(i) = jointsLimits[i].first + ( (double) rand() / RAND_MAX )*(jointsLimits[i].second - jointsLimits[i].first);
     }
@@ -263,7 +263,6 @@ bool InverseKinematicsIPOPT::get_starting_point(Ipopt::Index n, bool init_x, Num
 
             for(int i = 7; i < totalDOF; i++){
                 x[i] = guess(i-7);
-            guess.resize(0); //use the guess just once
             }
          }
         
@@ -433,7 +432,7 @@ void InverseKinematicsIPOPT::finalize_solution(SolverReturn status, Ipopt::Index
 
         }
     }
-
+    guess.resize(0);
 }
 
 bool InverseKinematicsIPOPT::eval_h(Ipopt::Index n, const Number* x, bool new_x, Number obj_factor, Ipopt::Index m, const Number* lambda, bool new_lambda, Ipopt::Index nele_hess, Ipopt::Index* iRow, Ipopt::Index* jCol, Number* values)

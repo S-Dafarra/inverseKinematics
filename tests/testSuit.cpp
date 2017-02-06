@@ -156,6 +156,8 @@ int main(int argc, char **argv) {
     std::cerr<<"Closing selectedjoints.mat file."<<std::endl;
     Mat_Close(pSelectedJoints);
     
+    Mat_VarFree(suitVar);
+    
     std::cerr<<"Closing suit.mat file."<<std::endl;
     Mat_Close(pSuit);
     

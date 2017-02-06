@@ -1,0 +1,14 @@
+\section{Constraints}
+The only constraints to be involved in the formulation are the lower and upper bounds on the optimization variables $S$, defined through the model.
+
+\section{Alternative formulation}
+A possible alternative formulation consists in augmenting the optimization variables in order to contain even $p_q$. In other words, the set of optimization variables $\chi$ is the following:
+\begin{equation}
+\chi = \begin{bmatrix}
+p\\
+\textbf{q}\\
+S
+\end{bmatrix}.
+\end{equation}
+
+Using this augmented formulation, it is necessary to add a set of 7 constraints which relate $p_q$ to $S$ through forward kinematics. Thus, the increment on the number optimization variables is counterbalanced by the same number of constraints. With respect to the previous formulation, the cost function is easier to be formulated and to compute its first and second derivative. On the other hand, the ``complexity'' is just moved on the computation of the gradient of the constraints, while its Hessian is far from being trivial.

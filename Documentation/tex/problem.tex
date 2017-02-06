@@ -1,0 +1,67 @@
+\section{Problem Statement}
+The problem consists in finding the joint angles, the so-called \textit{robot shape} $S$, given the model and the desired transformation between two frames. It is possible to state this problem in a optimization framework, then solve it through the Ipopt solver.
+
+\subsection{Objective} 
+The objective consists in defining the set of joint variables $S$ in order to obtain the desired transformation between a \textit{parent} frame and an \textit{end effector} (or \textit{target}) frame. It is supposed to have at least one joint between these two frames, with at least one degree of freedom (DoF) (so that $S$ is a vector of at least one element). Notice that only 1 DoF joints are considered. The set of optimization variables coincide with $S$.
+
+\section{Notation}
+\begin{itemize}
+\item $\dot{x}$ is the time derivative of $x$
+\item$\| \cdot\|^2_K$ is the $K$-weighted 2-norm.
+\item ${1}_n$ represents a $n \times n$ identity matrix. $0_{n \times m} \in \mathbb{R}^{n\times m}$ is a zero matrix while $0_n = 0_{n \times 1}$ is a zero column vector of size $n$.
+\item $\top$ indicates \textit{transpose}.
+\item $*$ refers to a desired item (considered as a datum).
+\end{itemize}
+
+\section{Cost Function}
+Given the desired transformation ${}^pH_t \in SE(3)$, it is possible to define a desired target position $p^*\in \mathbb{R}^3$ and a desired orientation ${}^pR_t \in SO(3)$, both expressed with respect to the \textit{parent} frame. For what concern the rotation, it can be expressed in quaternion form $\textbf{q}^*$, with the additional constraints of having the real part greater or equal than 0. Finally we can define $p_q^*\in \mathbb{R}^7,\: p_q^*=\left[\begin{smallmatrix}
+p^{*\top} & \textbf{q}^{*\top}
+\end{smallmatrix}\right]^\top$.
+
+Define $n\in \mathbb{N}$ as the number of joints (1 DoF each) considered when computing inverse kinematics (so that $S \in \mathbb{R}^n)$, $K_f \in \mathbb{R}^{7\times7}$ and $K_s \in \mathbb{R}^{n\times n}$ two symmetric positive semi-definite matrix of weights.
+
+Finally the cost function is the following:
+\begin{equation}\label{eq:initcost}
+\min_S \frac{1}{2}\|p_q - p_q^*\|^2_{K_f} + \frac{1}{2}\|S - S^*\|^2_{K_s}.
+\end{equation}
+Notice that the second term is a \textit{regularization} term useful when $n > 6$: it drives the solution toward $S^*$ in case of redundant manipulators.
+For what concerns the first term, considering the position part of $p_q$, the application of the 2-norm is straightforward. Considering the quaternion part, the 2-norm can be used as a metric for the rotation error (see Eq.(18) of \cite{huynh2009metrics}, where the minimum operator can be avoided thanks to the assumption on the modulus of the quaternion).
+
+We can rewrite Eq.\eqref{eq:initcost} as
+\begin{IEEEeqnarray}{RL}\label{eq:cost2}
+	\IEEEyesnumber \phantomsection
+\min_S &\frac{1}{2}(p_q - p_q^*)^\top K_f (p_q - p_q^*) + \frac{1}{2}(S - S^*)^\top K_s (S - S^*)=\IEEEyessubnumber\\
+=\min_S & \frac{1}{2}p_q^\top K_f p_q - \frac{1}{2}p_q^\top K_f p_q^* - \frac{1}{2}p_q^{*\top} K_f p_q + \frac{1}{2}p_q^{*\top} K_f p_q^* + \IEEEyessubnumber \\
+& \frac{1}{2}S^\top K_s S - \frac{1}{2}S^\top K_s S^* - \frac{1}{2}S^{*\top} K_s S + \frac{1}{2}S^{*\top} K_s S^*. \IEEEyessubnumber
+\end{IEEEeqnarray}
+Exploiting the assumption on the symmetry of the weights matrix and considering that nor $ \frac{1}{2}p_q^{*\top} K_f p_q^* $ neither $\frac{1}{2}S^{*\top} K_f S^*$ depend on $S$, we can finally rewrite Eq.\eqref{eq:cost2}:
+\begin{equation}\label{eq:cost_cisiamoquasi}
+	\min_S \frac{1}{2}p_q^\top K_f p_q - p_q^{*\top} K_f p_q + \frac{1}{2}S^\top K_s S -S^{*\top} K_s S.
+\end{equation}
+Here $p_q$ is obtained through forward kinematics from the shape S, thus:
+\begin{equation}\label{eq:cost}
+\min_S \frac{1}{2}p_q(S)^\top K_f p_q(S) - p_q^{*\top} K_f p_q(S) + \frac{1}{2}S^\top K_s S -S^{*\top} K_s S.
+\end{equation}
+
+\subsection{Gradient}
+Defining 
+\begin{equation}
+F = \frac{1}{2}p_q(S)^\top K_f p_q(S) - p_q^{*\top} K_f p_q(S) + \frac{1}{2}S^\top K_s S -S^{*\top} K_f S
+\end{equation}
+we can obtain the gradient of the cost function as:
+\begin{IEEEeqnarray}{RCL}
+	\IEEEyesnumber \phantomsection
+\frac{\partial F}{\partial S} &=& \left[\frac{1}{2}\left(MJ\right)^\top K_f p_q \right]^\top + \frac{1}{2}p_q^\top K_f M J  - p_q^{*\top} K_f M J + \IEEEyessubnumber \\
+&+& \frac{1}{2}K_s^\top S + \frac{1}{2}K_s S  -S^{*\top} K_f
+\end{IEEEeqnarray}
+where the first term is obtained by applying Eq.(50) of \cite{barnes2014matrix}. Exploiting again the symmetry of the weight matrices we obtain:
+\begin{equation}
+\frac{\partial F}{\partial S} = (p_q - p_q^*)^\top K_f MJ + (S-S^*)^\top K_s
+\end{equation}
+which can be transposed in
+\begin{equation}\label{eq:gradient}
+\left[\frac{\partial F}{\partial S}\right]^\top = \mathbb{G} = J^\top M^\top K_f (p_q - p_q^*) + K_s(S-S^*).
+\end{equation}
+In the above equations, $G$ defines the gradient of the cost function, $J$ is the relative jacobian between the parent and the target frame, while $M$ is the map between a twist and a 7-D vector composed by the linear velocity and the derivative of the quaternion.
+
+

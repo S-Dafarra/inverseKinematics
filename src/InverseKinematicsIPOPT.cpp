@@ -133,6 +133,20 @@ bool InverseKinematicsIPOPT::update()
 
 }
 
+bool InverseKinematicsIPOPT::randomInitialization(const double feed, VectorDynSize& guessOut)
+{
+    if(!modelLoaded)
+        return false;
+    
+    srand (feed);
+    guess.resize(totalDOF);
+    for(int i=0; i < guess.size(); ++i){
+        guess(i) = jointsLimits[i].first + ( (double) rand() / RAND_MAX )*(jointsLimits[i].second - jointsLimits[i].first);
+    }
+    guessOut = guess;
+    return true;
+}
+
 void InverseKinematicsIPOPT::twistToQuaternionTwist(Vector4& quaternion, MatrixFixSize< 7, 6 >& mapOut)
 {
     MatrixFixSize<7,6> map;
@@ -241,13 +255,30 @@ bool InverseKinematicsIPOPT::get_starting_point(Ipopt::Index n, bool init_x, Num
     Eigen::Map< Eigen::VectorXd > x_e (x, 7);
  
     if(init_x){
-        iKDC.setJointPos(desiredJoints);
-        p_H_e = iKDC.getRelativeTransform(parentFrame,endEffectorFrame);
-        x_e.head<3>() = toEigen(p_H_e.getPosition());
-        x_e.tail<4>() = toEigen(p_H_e.getRotation().asQuaternion());
+         if(guess.size() == (totalDOF-7)){
+            iKDC.setJointPos(guess);
+            p_H_e = iKDC.getRelativeTransform(parentFrame,endEffectorFrame);
+            x_e.head<3>() = toEigen(p_H_e.getPosition());
+            x_e.tail<4>() = toEigen(p_H_e.getRotation().asQuaternion());
+
+            for(int i = 7; i < totalDOF; i++){
+                x[i] = guess(i-7);
+            guess.resize(0); //use the guess just once
+            }
+         }
         
-        for(int i = 7; i < totalDOF; i++){
-            x[i] = desiredJoints(i-7);
+        else{
+            if(guess.size() >0){
+                std::cerr << "[IK WARNING] The guess dimension is different from the number of DOFs: "<< guess.size() << "!=" <<totalDOF-7 <<". Guess ignored." << std::endl;
+            }
+            iKDC.setJointPos(desiredJoints);
+            p_H_e = iKDC.getRelativeTransform(parentFrame,endEffectorFrame);
+            x_e.head<3>() = toEigen(p_H_e.getPosition());
+            x_e.tail<4>() = toEigen(p_H_e.getRotation().asQuaternion());
+            
+            for(int i = 7; i < totalDOF; i++){
+                x[i] = desiredJoints(i-7);
+            }
         }
     }
     return true;

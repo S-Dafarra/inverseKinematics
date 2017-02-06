@@ -14,7 +14,6 @@ struct IKErrorLog{
 
 struct IKSolverLog{
     std::vector< int > timeInstants;
-    std::vector< double > exitCode;
     std::vector< double > angleError;
     std::vector<double> elapsedTime;
 };
@@ -95,7 +94,7 @@ int main(int argc, char **argv) {
     
     matvar_t *suitVar;
     suitVar = Mat_VarRead(pSuit,"suit");
-    iDynTree::assertTrue(humanStateVar != NULL);
+    iDynTree::assertTrue(suitVar != NULL);
     std::cerr<<"Found suit variable"<<std::endl;
     
     matvar_t *linksVar;
@@ -167,7 +166,7 @@ int main(int argc, char **argv) {
     std::vector< InverseKinematics* > solvers(linksName.size()-1);
     
     for(int solverIterator = 0; solverIterator < solvers.size(); ++solverIterator){
-        solvers[solverIterator] = new InverseKinematics("ma57");
+        solvers[solverIterator] = new InverseKinematics();
     }
     
     
@@ -241,16 +240,16 @@ int main(int argc, char **argv) {
 
     iDynTree::assertTrue(solverIterator == solvers.size());
     
-    iDynTree::Vector3 weights;
-    weights(0) = 10;
+   /* iDynTree::Vector3 weights;
+    weights(0) = 100;
     weights(1) = 100;
-    weights(2) = 0.01;
+    weights(2) = 0.01; */
     
     std::vector< std::string > tempConsideredJoints;
     iDynTree::VectorDynSize tempDesiredJoints;
     
     for(solverIterator = 0; solverIterator < solvers.size(); ++solverIterator){ //set gains and desired joints positions
-        solvers[solverIterator]->setWeights(weights);
+        //solvers[solverIterator]->setWeights(weights);
         
         solvers[solverIterator]->getConsideredJoints(tempConsideredJoints);
         tempDesiredJoints.resize(tempConsideredJoints.size());
@@ -378,12 +377,12 @@ int main(int argc, char **argv) {
             solvers[solverIterator]->getErrors(positionError, rotationError, &angleError);
             elapsed_time = clock() - now;
             elapsed_time = elapsed_time/CLOCKS_PER_SEC;
+            iDynTree::assertTrue(exitCode >= 0);
             angleError = angleError*180/M_PI;
             
             if(angleError > 2){
                 loggerSolver[solverIterator].timeInstants.push_back(selectedInstant);
                 loggerSolver[solverIterator].elapsedTime.push_back(elapsed_time);
-                loggerSolver[solverIterator].exitCode.push_back(exitCode);
                 loggerSolver[solverIterator].angleError.push_back(angleError);
             }
             
@@ -421,8 +420,16 @@ int main(int argc, char **argv) {
         }
     }
     
-    
-    
+    int solverFailed = 1;
+    std::cerr << std::endl;
+    for(int i=0; i<solvers.size(); ++i){
+        if(loggerSolver.count(i)){
+            std::cerr << solverFailed << "* ";
+            std::cerr << "Solver #" << i << " experienced angle errors greater than 2[deg] for " << loggerSolver[i].timeInstants.size() << " times with maximum [deg]" << *std::max_element(loggerSolver[i].angleError.begin(), loggerSolver[i].angleError.end()) << std::endl;
+            solverFailed++;
+            
+        }
+    }
     
     for(int solverIterator = 0; solverIterator < solvers.size(); ++solverIterator){
         delete(solvers[solverIterator]);

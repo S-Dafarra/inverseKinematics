@@ -99,7 +99,7 @@ int main(int argc, char **argv) {
     /* Calling Inverse Kinematcs solver */
     //////////////////////////////////////
     
-    InverseKinematics solver;
+    InverseKinematics solver("ma57");
     
     std::cerr<<"Created solver object"<<std::endl;
     
@@ -112,9 +112,9 @@ int main(int argc, char **argv) {
     std::cerr << "Model Set" <<std::endl;
     
     iDynTree::Vector3 weights;
-    weights(0) = 100;
-    weights(1) = 10;
-    weights(2) = 0.01;
+    weights(0) = 1;
+    weights(1) = 10000;
+    weights(2) = 0.0;
     
     solver.setWeights(weights);
     
@@ -138,8 +138,14 @@ int main(int argc, char **argv) {
     double angleError;
     clock_t now;
     double elapsed_time;
+    int attempts;
+    iDynTree::VectorDynSize guess(model.getNrOfDOFs());
+    double dCost, rCost;
+    iDynTree::Vector4 idQuat;
+    idQuat.zero();
+    idQuat(0) = 1;
     
-    for(int j=0; j<4; ++j){
+    for(int j=0; j<1; ++j){
     
         srand ( clock() );
         
@@ -162,34 +168,53 @@ int main(int argc, char **argv) {
         
         std::cerr << "Desired Transformation set" << std::endl;
         
+        attempts = 0;
+        do{
+            if(attempts > 0){
+                if (attempts == 2){
+                    solver.setGuess(jointsTest);
+                    std::cerr << "USING ACTUAL SOLUTION" << std::endl;
+                }
+                else{
+                    solver.setRandomGuess(clock(), guess);
+                    //solver.setDesiredJointPositions(jointsTest);
+                    std::cerr << "Trying again with guess: " << guess.toString() << std::endl;
+                }
+            }
+            now = clock();
+            exitCode = solver.runIK(jointsIK);
+            elapsed_time = clock() - now;
+            elapsed_time = elapsed_time/CLOCKS_PER_SEC;
+            
+            if(attempts > 0){
+                std::cerr << "NEW RESULTS: "<<  std::endl;
+            }
+            std::cerr << "Elapsed Time: "<< elapsed_time << std::endl;
+            
+            std::cerr << "Exit Code " << exitCode << std::endl;
+            
+            iDynTree::assertTrue((exitCode >= 0));
+            
+            std::cerr << "Joints IK:" << jointsIK.toString() << std::endl;
         
-        now = clock();
-        exitCode = solver.runIK(jointsIK);
-        elapsed_time = clock() - now;
-        elapsed_time = elapsed_time/CLOCKS_PER_SEC;
-        std::cerr << "Elapsed Time: "<< elapsed_time << std::endl;
-        
-        std::cerr << "Exit Code " << exitCode << std::endl;
-        
-        iDynTree::assertTrue((exitCode >= 0));
-        
-        std::cerr << "Joints IK:" << jointsIK.toString() << std::endl;
-       
-        iDynTree::assertTrue(iKDC.setJointPos(jointsIK));
-        
-        iDynTree::toEigen(positionErrorComputed) = iDynTree::toEigen(p_H_t.getPosition()) - iDynTree::toEigen( iKDC.getRelativeTransform(model.getFrameIndex(parentFrameName),model.getFrameIndex(targetFrameName)).getPosition() );
-        rotationErrorComputed = p_H_t.getRotation()*(iKDC.getRelativeTransform(model.getFrameIndex(parentFrameName),model.getFrameIndex(targetFrameName)).getRotation().inverse());
-        
-        std::cerr << "Computed position error: " << positionErrorComputed.toString() << std::endl;
-        std::cerr << "Computed rotation error: " << std::endl << rotationErrorComputed.toString() << std::endl;
-        
-        std::cerr << "Retrieving errors from solver" << std::endl;
-        solver.getErrors(positionErrorIK, rotationErrorIK, &angleError);
-        
-        std::cerr << "Retrieved position error: " << positionErrorIK.toString() << std::endl;
-        std::cerr << "Retreived rotation error: "<< std::endl << rotationErrorIK.toString() << std::endl;
-        std::cerr << "Retreived angle error: "<< angleError << std::endl;
-        
+            iDynTree::assertTrue(iKDC.setJointPos(jointsIK));
+            
+            iDynTree::toEigen(positionErrorComputed) = iDynTree::toEigen(p_H_t.getPosition()) - iDynTree::toEigen( iKDC.getRelativeTransform(model.getFrameIndex(parentFrameName),model.getFrameIndex(targetFrameName)).getPosition() );
+            rotationErrorComputed = p_H_t.getRotation()*(iKDC.getRelativeTransform(model.getFrameIndex(parentFrameName),model.getFrameIndex(targetFrameName)).getRotation().inverse());
+            dCost = (iDynTree::toEigen(iKDC.getRelativeTransform(model.getFrameIndex(parentFrameName),model.getFrameIndex(targetFrameName)).getRotation().asQuaternion()) - iDynTree::toEigen(p_H_t.getRotation().asQuaternion())).norm();
+            rCost = (iDynTree::toEigen(rotationErrorComputed.asQuaternion()) - iDynTree::toEigen(idQuat)).norm();
+            std::cerr << "Computed position error: " << positionErrorComputed.toString() << std::endl;
+            std::cerr << "Computed rotation error: " << std::endl << rotationErrorComputed.toString() << std::endl;
+            std::cerr << "Computed quat cost: " << dCost <<" vs " << rCost << std::endl;
+            
+            std::cerr << "Retrieving errors from solver" << std::endl;
+            solver.getErrors(positionErrorIK, rotationErrorIK, &angleError);
+            
+            std::cerr << "Retrieved position error: " << positionErrorIK.toString() << std::endl;
+            std::cerr << "Retreived rotation error: "<< std::endl << rotationErrorIK.toString() << std::endl;
+            std::cerr << "Retreived angle error: "<< angleError*180/M_PI << std::endl;
+            attempts++;
+        }while((attempts < 3)&&(angleError > (2*M_PI/180)));
         
     }
 

@@ -1,5 +1,6 @@
 #include "InverseKinematics.h"
 #include "iDynTree/Model/Traversal.h"
+#include <iDynTree/Core/EigenHelpers.h>
 
 InverseKinematics::InverseKinematics()
 : updated(false)
@@ -7,6 +8,7 @@ InverseKinematics::InverseKinematics()
 , alreadyOptimized(false)
 {
     solverPointer = new InverseKinematicsV2IPOPT();
+    iDynTree::toEigen(solverPointer->gains) << 100, 100, 0.01;
     loader = IpoptApplicationFactory();
     loader->Options()->SetStringValue("hessian_approximation", "limited-memory");
 }
@@ -262,6 +264,17 @@ void InverseKinematics::setDesiredJointPositions(const iDynTree::VectorDynSize& 
     updated = false;
 }
 
+void InverseKinematics::setGuess(const iDynTree::VectorDynSize& guess)
+{
+    solverPointer->guess = guess;
+}
+
+bool InverseKinematics::setRandomGuess(const double feed, iDynTree::VectorDynSize& guess)
+{
+    return solverPointer->randomInitialization(feed, guess);
+}
+
+
 bool InverseKinematics::update(const iDynTree::Vector3& gains, const iDynTree::Position& desiredPosition, const iDynTree::Vector4& desiredQuaternion, const iDynTree::VectorDynSize& desiredJoints)
 {
     updated = solverPointer->update(gains, desiredPosition, desiredQuaternion, desiredJoints);
@@ -310,7 +323,8 @@ signed int InverseKinematics::runIK(iDynTree::VectorDynSize& jointsOut)
     if (!initialized){
         Ipopt::ApplicationReturnStatus status;
         //loader->Options()->SetStringValue("derivative_test", "first-order");
-        loader->Options()->SetIntegerValue("print_level", 1);
+        //loader->Options()->SetStringValue("derivative_test_print_all", "yes");
+        loader->Options()->SetIntegerValue("print_level", 2);
         
         status = loader->Initialize();
         
@@ -331,12 +345,13 @@ signed int InverseKinematics::runIK(iDynTree::VectorDynSize& jointsOut)
     }
     
     if(alreadyOptimized){
+       // std::cerr << "Reoptimize!!" << std::endl;
         loader->ReOptimizeTNLP(solverPointer);
         jointsOut = solverPointer->jointResult;
         return solverPointer->exitCode;
     }
     else {
-    
+            //std::cerr << "Optimize!!" << std::endl;
             loader->OptimizeTNLP(solverPointer);
             alreadyOptimized = true;
             jointsOut = solverPointer->jointResult;

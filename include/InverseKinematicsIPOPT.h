@@ -43,6 +43,7 @@ class InverseKinematicsIPOPT : public Ipopt::TNLP {
     
 public:
     iDynTree::VectorDynSize jointResult;
+    iDynTree::VectorDynSize guess;
     iDynTree::Vector3 gains;
     iDynTree::Position desiredPosition;
     iDynTree::Vector4 desiredQuaternion; 
@@ -60,7 +61,9 @@ public:
     bool update(const iDynTree::Vector3& gainsIn, const iDynTree::Position &desiredPositionIn, const iDynTree::Vector4 &desiredQuaternionIn, const iDynTree::VectorDynSize &desiredJointsIn);
 
     bool update();
-
+    
+    bool randomInitialization(const double feed, iDynTree::VectorDynSize& guessOut);
+    
     void computeErrors(iDynTree::Position& positionError, iDynTree::Rotation& rotationError, double* angleError);
     
     // IPOPT methods redefinition

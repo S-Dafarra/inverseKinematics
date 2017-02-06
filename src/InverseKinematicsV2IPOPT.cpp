@@ -115,6 +115,8 @@ bool InverseKinematicsV2IPOPT::update(const Vector3& gainsIn, const Position& de
     toEigen(pDesired).segment<3>(0) = toEigen(desiredPosition);
     toEigen(pDesired).segment<4>(3) = toEigen(desiredQuaternion);
     
+    std::cerr << "pDesired = "<< pDesired.toString() << std::endl;
+    
     gainsLoaded = true;
     return true;
 }
@@ -124,6 +126,21 @@ bool InverseKinematicsV2IPOPT::update()
     return update(gains,desiredPosition,desiredQuaternion,desiredJoints);
 
 }
+
+bool InverseKinematicsV2IPOPT::randomInitialization(const double feed, VectorDynSize& guessOut)
+{
+    if(!modelLoaded)
+        return false;
+    
+    srand (feed);
+    guess.resize(totalDOF);
+    for(int i=0; i < guess.size(); ++i){
+        guess(i) = jointsLimits[i].first + ( (double) rand() / RAND_MAX )*(jointsLimits[i].second - jointsLimits[i].first);
+    }
+    guessOut = guess;
+    return true;
+}
+
 
 void InverseKinematicsV2IPOPT::twistToQuaternionTwist(Vector4& quaternion, MatrixFixSize< 7, 6 >& mapOut)
 {
@@ -216,10 +233,27 @@ bool InverseKinematicsV2IPOPT::get_starting_point(Ipopt::Index n, bool init_x, N
     if(init_lambda) return false;
  
     if(init_x){
-        for(int i = 0; i < totalDOF; i++){
-            x[i] = desiredJoints(i);
+        if(guess.size() == totalDOF){
+                for(int i = 0; i < totalDOF; i++){
+                    x[i] = guess(i);
+                }
+            //guess.resize(0);
+        }
+        
+        else{
+            if(guess.size() >0){
+                std::cerr << "[IK WARNING] The guess dimension is different from the number of DOFs: "<< guess.size() << "!=" <<totalDOF-7 <<". Guess ignored." << std::endl;
+            }
+                for(int i = 0; i < totalDOF; i++){
+                    x[i] = desiredJoints(i);
+                }
         }
     }
+   /* std::cerr << "STARTING POINT " << std::endl;
+    for(int i =0; i < totalDOF; ++i){
+        std::cerr << x[i] << " ";
+    }
+    std::cerr <<std::endl<<std::endl;*/
     return true;
 }
 
@@ -230,11 +264,17 @@ bool InverseKinematicsV2IPOPT::eval_f(Ipopt::Index n, const Number* x, bool new_
     iDynTree::Transform p_H_e; //forward kinematics
     
     toEigen(jointsTemp) = x_in;
+    
+    //std::cerr << "Print of q: "<< jointsTemp.toString() << std::endl;
+    
     iKDC.setJointPos(jointsTemp);
     p_H_e = iKDC.getRelativeTransform(parentFrame,endEffectorFrame);
     
     toEigen(p).segment<3>(0) = toEigen(p_H_e.getPosition());
     toEigen(p).segment<4>(3) = toEigen(p_H_e.getRotation().asQuaternion());
+    
+    //std::cerr << "Print of p: "<< p.toString() << std::endl;
+    
     
     double obj_value1 = 0.5*toEigen(p).transpose() * toEigen(kF) * toEigen(p);
     double obj_value2 = - toEigen(pDesired).transpose() * toEigen(kF) * toEigen(p); 

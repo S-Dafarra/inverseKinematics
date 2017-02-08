@@ -275,9 +275,9 @@ bool InverseKinematics::setRandomGuess(const double feed, iDynTree::VectorDynSiz
 }
 
 
-bool InverseKinematics::update(const iDynTree::Vector3& gains, const iDynTree::Position& desiredPosition, const iDynTree::Vector4& desiredQuaternion, const iDynTree::VectorDynSize& desiredJoints)
+bool InverseKinematics::update(const iDynTree::Vector3& weights, const iDynTree::Position& desiredPosition, const iDynTree::Vector4& desiredQuaternion, const iDynTree::VectorDynSize& desiredJoints)
 {
-    updated = solverPointer->update(gains, desiredPosition, desiredQuaternion, desiredJoints);
+    updated = solverPointer->update(weights, desiredPosition, desiredQuaternion, desiredJoints);
     return updated;
 }
 
@@ -327,7 +327,7 @@ signed int InverseKinematics::runIK(iDynTree::VectorDynSize& jointsOut)
         loader->Options()->SetIntegerValue("print_level", 2); //default 5
         loader->Options()->SetNumericValue("tol", 1e-6); //default 1e-8
         loader->Options()->SetNumericValue("acceptable_tol", 1e-3); //default 1e-6
-        loader->Options()->SetIntegerValue("acceptable_iter", 10); //default 15
+        loader->Options()->SetIntegerValue("acceptable_iter", 5); //default 15
         
         status = loader->Initialize();
         

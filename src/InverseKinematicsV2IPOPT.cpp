@@ -91,7 +91,7 @@ bool InverseKinematicsV2IPOPT::update(const Vector3& gainsIn, const Position& de
     }
 
     if(desiredJointsIn.size() != (totalDOF)){
-        std::cerr<<"[ERROR] Dimension of desired joints vector lower than the number of considered joints"<<desiredJointsIn.size()<<"!="<<model.getNrOfDOFs()<< std::endl;
+        std::cerr<<"[ERROR] Dimension of desired joints vector different than the number of considered joints"<<desiredJointsIn.size()<<"!="<<model.getNrOfDOFs()<< std::endl;
         return false;
     }
 

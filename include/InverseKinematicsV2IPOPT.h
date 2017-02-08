@@ -17,8 +17,10 @@
 #include <IpIpoptApplication.hpp>
 #include <Eigen/Core>
 
+class InverseKinematics;
 
 class InverseKinematicsV2IPOPT : public Ipopt::TNLP {
+    friend class InverseKinematics;
     iDynTree::Model model;
     bool modelLoaded;
     bool gainsLoaded;
@@ -39,7 +41,7 @@ class InverseKinematicsV2IPOPT : public Ipopt::TNLP {
 
     void relativeJacobian(const iDynTree::VectorDynSize &configuration, iDynTree::MatrixDynSize& jacobianOut);
     
-public:
+//public:
     iDynTree::VectorDynSize jointResult;
     iDynTree::VectorDynSize guess;
     iDynTree::Vector3 gains;
@@ -47,6 +49,8 @@ public:
     iDynTree::Vector4 desiredQuaternion; 
     iDynTree::VectorDynSize desiredJoints;
     signed int exitCode;
+    
+public:
     
     InverseKinematicsV2IPOPT();
     

@@ -99,7 +99,7 @@ int main(int argc, char **argv) {
     /* Calling Inverse Kinematcs solver */
     //////////////////////////////////////
     
-    InverseKinematics solver("ma57");
+    InverseKinematics solver;
     
     std::cerr<<"Created solver object"<<std::endl;
     
@@ -140,11 +140,12 @@ int main(int argc, char **argv) {
     double elapsed_time;
     int attempts;
     iDynTree::VectorDynSize guess(model.getNrOfDOFs());
+    guess = desJoints;
     double dCost, rCost;
     iDynTree::Vector4 idQuat;
     idQuat.zero();
     idQuat(0) = 1;
-    
+
     for(int j=0; j<1; ++j){
     
         srand ( clock() );
@@ -171,12 +172,13 @@ int main(int argc, char **argv) {
         attempts = 0;
         do{
             if(attempts > 0){
-                if (attempts == 2){
+                if (attempts == 3){
                     solver.setGuess(jointsTest);
                     std::cerr << "USING ACTUAL SOLUTION" << std::endl;
                 }
                 else{
-                    solver.setRandomGuess(clock(), guess);
+                    ok = solver.setRandomGuess(clock(), guess, guess, 0.3);
+                    iDynTree::assertTrue(ok);
                     //solver.setDesiredJointPositions(jointsTest);
                     std::cerr << "Trying again with guess: " << guess.toString() << std::endl;
                 }
@@ -214,7 +216,7 @@ int main(int argc, char **argv) {
             std::cerr << "Retreived rotation error: "<< std::endl << rotationErrorIK.toString() << std::endl;
             std::cerr << "Retreived angle error: "<< angleError*180/M_PI << std::endl;
             attempts++;
-        }while((attempts < 3)&&(angleError > (2*M_PI/180)));
+        }while((attempts < 4)&&(angleError > (2*M_PI/180)));
         
     }
 

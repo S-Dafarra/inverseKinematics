@@ -19,6 +19,7 @@ class InverseKinematics {
     void removeUnsupportedJoints(const iDynTree::Model& modelInput, iDynTree::Model& modelOutput);
     bool autoSelectJointsFromTraversal(const iDynTree::Model& modelInput, const std::string& parentFrame, const std::string& endEffectorFrame, iDynTree::Model& modelOutput);
     
+    iDynTree::VectorDynSize tempGuess; //auxiliary variable for random initialization
 public:
     
     /**
@@ -107,15 +108,16 @@ public:
     void setDesiredTransformation(const iDynTree::Transform& p_H_t);
     
     /**
-     * \brief Defines the desired set of joints values to which the result should be closed to.
+     * \brief (Optional) Defines the desired set of joints values to which the result should be closed to.
      * \param[in] desiredJoints A vector of dimension equal to the number of DoFs of the considered model.
      * This terms allows to define a sort of regularization in case of redundancy.
+     * \note The default is a zero vector.
      */
     void setDesiredJointPositions(const iDynTree::VectorDynSize& desiredJoints);
     
     /**
-     * \brief Defines the optimization starting point
-     * \param[in] guess A vector of dimension eqaul to the number of Dofs of the considered model.
+     * \brief (Optional) Defines the optimization starting point
+     * \param[in] guess A vector of dimension equal to the number of Dofs of the considered model.
      * By defining it, the optimization starts from the point defined in guess. This can be useful in case a local minima is detected. The definition of a guess is optional. If it is not defined, 
      * desiredJoints will be used as initial point. Thus, guess allows to define a particular starting point, without affecting the regularization term. 
      * \note At the end of the optimization, the guess is automatically deleted. Thus, if the optimization is started again without specifying a guess, desiredJoints will be used as initial point.
@@ -123,13 +125,29 @@ public:
     void setGuess(const iDynTree::VectorDynSize& guess);
     
     /**
-     * \brief Set a random guess.
+     * \brief (Optional) Set a random guess.
      * \param[in] feed Random number feed. It initialize the pseudo-random number generator.
      * \param[out] guess The guess that will be used as initialization during the optimization.
      * It works as setGuess, with the difference that the guess is chosen automatically, respecting joints limits. It can be useful to reinitialize the optimizer in order to avoid local minima.
      * \return false when the the model has not been loaded yet, thus the joints limits are not defined.
-     * */
+     * \warning It may perform dynamic memory allocation, depending on the size of guess.
+     */
     bool setRandomGuess(const double feed, iDynTree::VectorDynSize& guess);
+    
+    /**
+     * \brief (Optional) Set a random guess.
+     * \param[in] feed Random number feed. It initialize the pseudo-random number generator.
+     * \param[out] guess The guess that will be used as initialization during the optimization.
+     * \param[in] oldGuess A previous guess.
+     * \param[in] minDistance The minimum "distance" the new guess should be from oldGuess.
+     * \param[in] maxIter The maximum number of iteration available to find a new guess. Default is 10
+     * It works as setRandomGuess, with the difference that the guess is chosen to be far enough from oldGuess. In particular, the 2-norm of the difference between guess and oldGuess, normalized by the
+     * number of DoFs, will be greater than minDistance. It may happen that minDistance is too high, thus to avoid infinite loop, a maximum on the number of iterations is inserted. Its default value is 10.
+     * \note A reasonable value for minDistance is 0.3.
+     * \return false when the the model has not been loaded yet, thus the joints limits are not defined, or when the size of oldGuess is not correct.
+     * \warning It may perform dynamic memory allocation, depending on the size of guess (if it is different from the number of DoFs).
+     */
+    bool setRandomGuess(const double feed, iDynTree::VectorDynSize& guess, const iDynTree::VectorDynSize& oldGuess, double minDistance, const int maxIter = 10);
     
     /**
      * \brief Update the problem between two optimization runs.

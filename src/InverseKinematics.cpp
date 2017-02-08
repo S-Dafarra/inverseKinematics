@@ -194,6 +194,8 @@ bool InverseKinematics::setModelfromURDF(const std::string& URDFfilename, const 
     
     _parentFrame = parentFrame;
     _targetFrame = endEffectorFrame;
+    tempGuess.resize(model.getNrOfDOFs());
+    
     return solverPointer->loadFromModel(model, parent, endEffector);
 }
 
@@ -230,6 +232,7 @@ bool InverseKinematics::setModel(const iDynTree::Model& modelInput, const std::s
 
     _parentFrame = parentFrame;
     _targetFrame = endEffectorFrame;
+    tempGuess.resize(model.getNrOfDOFs());
     
     return solverPointer->loadFromModel(model, parentFrameIndex, endEffectorFrameIndex);
 }
@@ -272,6 +275,29 @@ void InverseKinematics::setGuess(const iDynTree::VectorDynSize& guess)
 bool InverseKinematics::setRandomGuess(const double feed, iDynTree::VectorDynSize& guess)
 {
     return solverPointer->randomInitialization(feed, guess);
+}
+
+bool InverseKinematics::setRandomGuess(const double feed, iDynTree::VectorDynSize& guess, const iDynTree::VectorDynSize& oldGuess, double minDistance, const int maxIter)
+{
+    bool success = false;
+    int iter = 0;
+    double norm = 0;
+
+    do{
+        success = setRandomGuess(feed + iter + 1, tempGuess);
+        if((tempGuess.size() != oldGuess.size())|| !success ||(tempGuess.size() == 0))
+            return false;
+        norm = (iDynTree::toEigen(tempGuess) - iDynTree::toEigen(oldGuess)).norm()/tempGuess.size();
+        //std::cerr << "[IK - setRandomGuess] Norm:"<< norm << std::endl;
+        iter++;
+    }while((iter < maxIter)&&(norm < minDistance));
+    
+    if(iter == maxIter)
+        std::cerr << "[IK - setRandomGuess] Maximum iteration reached." << std::endl;
+    
+    guess = tempGuess;
+    
+    return true;
 }
 
 

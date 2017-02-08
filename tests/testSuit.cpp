@@ -242,16 +242,16 @@ int main(int argc, char **argv) {
 
     iDynTree::assertTrue(solverIterator == solvers.size());
     
-   /* iDynTree::Vector3 weights;
-    weights(0) = 100;
+    iDynTree::Vector3 weights;
+    weights(0) = 1;
     weights(1) = 100;
-    weights(2) = 0.01; */
+    weights(2) = 0.0;
     
     std::vector< std::string > tempConsideredJoints;
     iDynTree::VectorDynSize tempDesiredJoints;
     
     for(solverIterator = 0; solverIterator < solvers.size(); ++solverIterator){ //set gains and desired joints positions
-        //solvers[solverIterator]->setWeights(weights);
+        solvers[solverIterator]->setWeights(weights);
         
         solvers[solverIterator]->getConsideredJoints(tempConsideredJoints);
         tempDesiredJoints.resize(tempConsideredJoints.size());
@@ -342,6 +342,15 @@ int main(int argc, char **argv) {
     std::string jointName;
     std::map < std::string, IKErrorLog> loggerOpensim;
     std::map < int, IKSolverLog> loggerSolver;
+    int attempts = 0;
+    std::vector< iDynTree::VectorDynSize > guessVector(solvers.size());
+    
+    for(int i=0; i<solvers.size(); ++i){
+        solvers[i]->getConsideredJoints(tempConsideredJoints);
+        guessVector[i].resize(tempConsideredJoints.size());
+        guessVector[i].zero();
+    }
+
     
     for(selectedInstant = 0; selectedInstant < humanStateQi.cols(); ++selectedInstant){
         std::cerr << humanStateQi.cols() << "/" << selectedInstant; 
@@ -372,15 +381,28 @@ int main(int argc, char **argv) {
             w_H_target.setRotation(tempRotation);
             tempTransform = w_H_parent.inverse()*w_H_target;
             solvers[solverIterator]->setDesiredTransformation(tempTransform);
-            
+            solvers[solverIterator]->setGuess(guessVector[solverIterator]);
             //std::cerr << "Solver #" << solverIterator+1 << std::endl;
+            attempts = 0;
             now = clock();
-            exitCode = solvers[solverIterator]->runIK(jointsOut);
-            solvers[solverIterator]->getErrors(positionError, rotationError, &angleError);
-            elapsed_time = clock() - now;
-            elapsed_time = elapsed_time/CLOCKS_PER_SEC;
-            iDynTree::assertTrue(exitCode >= 0);
-            angleError = angleError*180/M_PI;
+            do{
+                if(attempts > 0){
+                    ok = solvers[solverIterator]->setRandomGuess(clock(), guessVector[solverIterator], guessVector[solverIterator], 0.15, 5);
+                    iDynTree::assertTrue(ok);
+                    //solver.setDesiredJointPositions(jointsTest);
+                    //std::cerr << "Trying again with guess: " << guess.toString() << std::endl;
+                }
+                
+                exitCode = solvers[solverIterator]->runIK(jointsOut);
+                solvers[solverIterator]->getErrors(positionError, rotationError, &angleError);
+                elapsed_time = clock() - now;
+                elapsed_time = elapsed_time/CLOCKS_PER_SEC;
+                iDynTree::assertTrue(exitCode >= 0);
+                angleError = angleError*180/M_PI;
+                guessVector[solverIterator] = jointsOut;
+                attempts++;
+            }while((attempts < 3)&&(angleError > (2*M_PI/180)));
+            
             
             if(angleError > 2){
                 loggerSolver[solverIterator].timeInstants.push_back(selectedInstant);

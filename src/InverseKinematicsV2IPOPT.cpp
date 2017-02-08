@@ -56,6 +56,7 @@ bool InverseKinematicsV2IPOPT::loadFromModel(const Model& modelInput, FrameIndex
     std::cerr << std::endl;*/
     
     desiredJoints.resize(model.getNrOfDOFs());
+    desiredJoints.zero();
     
     jointResult.resize(model.getNrOfDOFs());
     jointResult.zero();
@@ -140,7 +141,6 @@ bool InverseKinematicsV2IPOPT::randomInitialization(const double feed, VectorDyn
     guessOut = guess;
     return true;
 }
-
 
 void InverseKinematicsV2IPOPT::twistToQuaternionTwist(Vector4& quaternion, MatrixFixSize< 7, 6 >& mapOut)
 {
@@ -378,7 +378,7 @@ void InverseKinematicsV2IPOPT::finalize_solution(SolverReturn status, Ipopt::Ind
 
         }
     }
-    guess.resize(0);
+    guess = desiredJoints;
 }
 
 bool InverseKinematicsV2IPOPT::eval_h(Ipopt::Index n, const Number* x, bool new_x, Number obj_factor, Ipopt::Index m, const Number* lambda, bool new_lambda, Ipopt::Index nele_hess, Ipopt::Index* iRow, Ipopt::Index* jCol, Number* values)

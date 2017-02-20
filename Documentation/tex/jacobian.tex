@@ -1,0 +1,32 @@
+\section{Relative Jacobian}
+The relative Jacobian included in the gradient of Eq.\eqref{eq:gradient} is the partial derivative of the forward kinematics function with respect ot $S$. Thus, it is necessary to pay attention on the formulation with which the Jacobian is expressed. In particular the \textit{mixed} representation has to be adopted. Indeed, we don't need the time derivative, thus this representation fits our goal since it keeps the angular and linear velocity ``decoupled''. On the other hand, for computations, we will adopt the \textit{body fixed} representation (\textit{left trivialization}), having care of converting the Jacobian to the mixed one at end.
+
+Define with ${}^d V_{c,d}$ the left-trivialized velocity of a frame $d$ with respect to $c$. We can write it as a function of $S$:
+\begin{equation}
+{}^d V_{c,d} = {}^d J_{c,d}\dot{S}
+\end{equation}
+where ${}^d J_{c,d}$ is the \textit{left-trivialized} relative Jacobian. 
+Using the composition of velocities, it is possible to define ${}^d V_{c,d}$ having the relative velocities of $c$ and $d$ with respect to a third frame $w$. In particular:
+\begin{equation}
+{}^d V_{c,d} = {}^d X_w {}^w V_{c,w} + {}^d V_{w,d}
+\end{equation}
+where $X$ represent an \textit{adjoint} transformation. Here we can exploit the fact that \begin{equation}
+{}^w V_{c,w} = - {}^w V_{w,c}.
+\end{equation} 
+Indeed we have the same frame with respect to the relative velocity is expressed. What changes is that the velocity of $c$ is expressed with respect to $w$ and not vice versa. Now the goal is to express all these relative velocities in \textit{left trivialized} formulation, with respect to the world frame.
+\begin{equation}
+{}^d V_{c,d} = -{}^d X_w {}^w V_{w,c} + {}^d V_{w,d} = -{}^d X_w  \left({}^w X_c  {}^cV_{w,c}\right) + {}^d V_{w,d}.
+\end{equation}
+At this stage we can introduce the \textit{left-trivialized} Jacobian expressed in world frame:
+\begin{equation}
+{}^d J_{c,d}\dot{S} = -{}^d X_c {}^c J_{w,c}\dot{S} + {}^d J_{w,d}\dot{S}.
+\end{equation}
+This equation should hold for any $\dot{S}$, so:
+\begin{equation}\label{eq:ltjac}
+{}^d J_{c,d} = -{}^d X_c {}^c J_{w,c} + {}^d J_{w,d}.
+\end{equation}
+
+Now, recalling our initial goal of having the derivative of the forward kinematics with respect to $S$, the \textit{mixed representation} which adopts the origin of $d$ and the orientation of $c$, is effective, since it decouples the linear and angular velocity. For this conversion, it is necessary to multiply Eq.\eqref{eq:ltjac} by the appropriate adjoint transformation:
+\begin{equation}\label{eq:rel_jac}
+{}^{d[c]} J_{c,d} = {}^{d[c]} X_d {}^d J_{c,d} = -{}^{d[c]} X_c {}^c J_{w,c} + {}^{d[c]} X_d {}^d J_{w,d}.
+\end{equation}

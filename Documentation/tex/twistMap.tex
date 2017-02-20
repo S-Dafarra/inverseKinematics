@@ -1,0 +1,43 @@
+\section{The Map $M$}
+
+The last term of Eq.\eqref{eq:gradient} to be defined is the map $M$. It maps a twist into a 7-D vector composed by linear position and quaternion derivative. Taking in mind that the relative Jacobian of Eq. \eqref{eq:rel_jac}, provide a \textit{right trivialized} angular velocity, $M$ is the following
+\begin{equation}
+M = \begin{bmatrix}
+			\mathbbm{1}_3 & 0_{3\times3}\\[6pt]
+			0_{4\times3}  & \frac{1}{2}E^\top
+	\end{bmatrix}
+\end{equation}
+where $E$ is defined in \cite{graf2008quaternions}. In particular, by defining a quaternion $\textbf{q}$ as a 4-D vector $\textbf{q} = \left[q_0, q_1, q_2, q_3\right]$ with $q_0$ the real part, $E$ is the following:
+\begin{equation}
+E=
+\begin{bmatrix}
+-q_1 & q_0 & -q_3 & q_2\\
+-q_2 & q_3 & q_0 & -q_1\\
+-q_3 & -q_2 & q_1 & q_0
+\end{bmatrix}
+\end{equation}
+which can be written in a short form as:
+\begin{equation}
+E = \begin{bmatrix}
+	-\textit{Im}(\textbf{q}) & \textit{skew}\left(Im(\textbf{q})\right)+q_0\cdot\mathbbm{1}_3
+\end{bmatrix}
+\end{equation}
+where
+\begin{equation}
+Im(\textbf{q}) = \begin{bmatrix}
+q_1 \\
+q_2 \\
+q_3 \\
+\end{bmatrix}, \quad \textit{skew}(\omega) = \begin{bmatrix}
+													0 & -\omega_z & \omega_y\\
+													\omega_z & 0 & -\omega_x\\
+													-\omega_y & \omega_x & 0
+											\end{bmatrix}, \quad \omega = \begin{bmatrix}
+											\omega_x \\
+											\omega_y \\
+											\omega_z \\
+											\end{bmatrix}
+\end{equation}
+
+\paragraph{Remark}
+Since the \textit{mixed} representation of the Jacobian carries the angular velocity part in \textit{right-trivialized} formulation, it is necessary to use $E$ inside $M$. Otherwise, the matrix called $G$ in \cite{graf2008quaternions} should have been employed.
